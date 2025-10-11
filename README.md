@@ -26,21 +26,8 @@
 
 ## 💻 环境要求
 
-### 硬件要求
-- **GPU**: 至少 2x GPU（推荐显存 40GB+）
-- **内存**: 至少 32GB RAM
-- **存储**: 至少 50GB 可用空间
-
 ### 软件环境
-```bash
-- Python 3.10+
-- PyTorch 2.0+
-- CUDA 11.8+
-- Ray
-- vLLM
-- Transformers
-- HuggingFace Hub
-```
+参考verl需要的环境
 
 ---
 
@@ -71,8 +58,6 @@ pip install tensorboard datasets pandas pyarrow
 ```bash
 cd /home/luzhenyan/verl
 
-# 安装依赖
-pip install transformers torch
 
 # 运行下载脚本
 python download_model.py
