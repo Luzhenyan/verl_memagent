@@ -1,0 +1,39 @@
+# 分段阅读工具配置文件
+# 用于VERL的工具调用机制
+
+tools:
+  # 读取文档段落工具
+  - class_name: "verl.tools.reading_tools.ReadDocumentTool"
+    config:
+      type: "native"
+      name: "read_document_segment"
+      description: "读取文档的指定段落"
+      max_segment_length: 500
+      max_segments_per_doc: 20
+
+  # 写段落总结工具
+  - class_name: "verl.tools.reading_tools.WriteSummaryTool"
+    config:
+      type: "native"
+      name: "write_segment_summary"
+      description: "为读取的段落写总结"
+      max_summary_length: 200
+      quality_threshold: 0.7
+
+  # 更新当前总结工具
+  - class_name: "verl.tools.reading_tools.UpdateCurrentSummaryTool"
+    config:
+      type: "native"
+      name: "update_current_summary"
+      description: "基于新的段落总结更新当前总结"
+      max_summary_length: 1000
+      helpfulness_threshold: 0.6
+
+  # 生成最终答案工具
+  - class_name: "verl.tools.reading_tools.GenerateFinalAnswerTool"
+    config:
+      type: "native"
+      name: "generate_final_answer"
+      description: "基于当前总结和问题生成最终答案"
+      max_answer_length: 500
+      accuracy_threshold: 0.8

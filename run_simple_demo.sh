@@ -1,0 +1,44 @@
+#!/bin/bash
+set -x
+export VLLM_USE_V1=1
+export RAY_DEDUP_LOGS=0
+export VERL_LOGGING_LEVEL=INFO
+
+PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
+    data.train_files=/home/luzhenyan/data/triviaqa_docs/train_small.parquet \
+    data.val_files=/home/luzhenyan/data/triviaqa_docs/train_small.parquet \
+    data.train_batch_size=2 \
+    data.return_raw_chat=True \
+    data.max_prompt_length=1024 \
+    data.max_response_length=1024 \
+    actor_rollout_ref.model.path=/home/luzhenyan/models/Qwen2.5-7B-Instruct \
+    actor_rollout_ref.actor.optim.lr=1e-6 \
+    actor_rollout_ref.actor.ppo_mini_batch_size=2 \
+    actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=1 \
+    actor_rollout_ref.rollout.name=vllm \
+    actor_rollout_ref.rollout.mode=async \
+    actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=1 \
+    actor_rollout_ref.rollout.tensor_model_parallel_size=2 \
+    actor_rollout_ref.rollout.gpu_memory_utilization=0.7 \
+    actor_rollout_ref.rollout.max_num_batched_tokens=8192 \
+    actor_rollout_ref.rollout.enable_chunked_prefill=false \
+    actor_rollout_ref.rollout.agent.num_workers=1 \
+    actor_rollout_ref.rollout.multi_turn.enable=true \
+    actor_rollout_ref.rollout.multi_turn.tool_config_path=verl/utils/tools/segmented_reading_tools.yaml \
+    actor_rollout_ref.rollout.multi_turn.max_user_turns=5 \
+    actor_rollout_ref.rollout.multi_turn.max_assistant_turns=5 \
+    actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=1 \
+    critic.optim.lr=1e-5 \
+    critic.model.path=/home/luzhenyan/models/Qwen2.5-0.5B-Instruct/snapshots/7ae557604adf67be50417f59c2c2f167def9a775 \
+    critic.ppo_micro_batch_size_per_gpu=1 \
+    algorithm.kl_ctrl.kl_coef=0.001 \
+    custom_reward_function.path=/home/luzhenyan/verl/verl/utils/reward_score/segmented_reading.py \
+    custom_reward_function.name=compute_segmented_reading_reward \
+    trainer.logger=console \
+    trainer.val_before_train=False \
+    trainer.n_gpus_per_node=2 \
+    trainer.nnodes=1 \
+    trainer.save_freq=5 \
+    trainer.test_freq=5 \
+    trainer.total_epochs=3 \
+    hydra.run.dir=/user/luzhenyan

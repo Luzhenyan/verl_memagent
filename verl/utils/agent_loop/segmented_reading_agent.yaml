@@ -1,0 +1,7 @@
+# Agent Loop配置 - 分段阅读任务
+agent_loops:
+  - name: "segmented_reading_agent"
+    _target_: verl.experimental.agent_loop.segmented_reading_agent_loop.SegmentedReadingAgentLoop
+    max_segments_to_read: 10  # 最多读取10个段落
+    segment_length: 2048      # 每个段落2048字符
+    tools_config_file: verl/utils/tools/segmented_reading_tools.yaml

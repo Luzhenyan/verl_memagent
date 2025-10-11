@@ -1,0 +1,85 @@
+# 分段阅读训练配置 - 基于配置继承
+# 继承官方PPO训练器配置，只修改必要的部分
+
+hydra:
+  searchpath:
+    - file://verl/trainer/config
+
+defaults:
+  - ppo_trainer
+  - _self_
+
+# 数据配置
+data:
+  train_files: "/home/luzhenyan/data/triviaqa_docs/train_small.parquet"
+  val_files: "/home/luzhenyan/data/triviaqa_docs/val.parquet"
+  train_batch_size: 2
+  max_prompt_length: 2048
+  max_response_length: 512
+  return_raw_chat: True
+
+# Actor和Rollout配置
+actor_rollout_ref:
+  hybrid_engine: True
+  model:
+    path: "/home/luzhenyan/models/Qwen2.5-0.5B-Instruct/snapshots/7ae557604adf67be50417f59c2c2f167def9a775"
+    # 启用共享内存优化大模型加载
+    use_shm: True
+    # 启用内存优化
+    enable_gradient_checkpointing: True
+    enable_activation_offload: False
+  actor:
+    ppo_mini_batch_size: 1
+    ppo_micro_batch_size_per_gpu: 1
+    optim:
+      lr: 1e-6
+  rollout:
+    name: vllm
+    log_prob_micro_batch_size_per_gpu: 1
+    tensor_model_parallel_size: 1
+    # 启用内存优化
+    enable_chunked_prefill: False  # 禁用分块预填充以节省内存
+    agent:
+      num_workers: 1
+      agent_loop_config_path: verl/utils/agent_loop/segmented_reading_agent.yaml
+    multi_turn:
+      enable: True
+      tool_config_path: verl/utils/tools/segmented_reading_tools.yaml
+      format: qwen2_tools # 假设Qwen2支持OpenAI function calling类似的格式
+
+# Critic配置
+critic:
+  model:
+    path: "/home/luzhenyan/models/Qwen2.5-0.5B-Instruct/snapshots/7ae557604adf67be50417f59c2c2f167def9a775"
+    # 启用共享内存优化大模型加载
+    use_shm: True
+    # 启用内存优化
+    enable_gradient_checkpointing: True
+    enable_activation_offload: False
+  ppo_micro_batch_size_per_gpu: 1
+  optim:
+    lr: 1e-5
+
+# 算法配置
+algorithm:
+  kl_ctrl:
+    kl_coef: 0.001
+
+# 自定义奖励函数
+custom_reward_function:
+  path: verl/utils/reward_score/segmented_reading.py
+  name: compute_segmented_reading_reward
+
+# 训练器配置
+trainer:
+  total_epochs: 3
+  save_freq: 5
+  test_freq: 5
+  n_gpus_per_node: 1
+  nnodes: 1
+  logger: console  # 使用console logger，关闭wandb
+  # Checkpoint保存路径
+  default_local_dir: "/user/luzhenyan/checkpoints/segmented_reading"
+  # 项目名称和实验名称
+  project_name: "segmented_reading"
+  experiment_name: "triviaqa_training"

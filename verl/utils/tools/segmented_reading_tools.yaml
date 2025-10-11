@@ -1,0 +1,58 @@
+# 分段阅读工具配置 - 真正的文件操作工具
+tools:
+  - name: "read_segment_file"
+    class_name: "verl.utils.tools.segmented_reading_tools.ReadSegmentFileTool"
+    config:
+      type: "native"
+    tool_schema:
+      type: "function"
+      function:
+        name: "read_segment_file"
+        description: "Read a specific segment from a document file"
+        parameters:
+          type: "object"
+          properties:
+            segment_index:
+              type: "integer"
+              description: "Index of the segment to read (0-based)"
+            file_path:
+              type: "string"
+              description: "Path to the document file"
+          required: ["segment_index", "file_path"]
+  
+  - name: "write_summary_file"
+    class_name: "verl.utils.tools.segmented_reading_tools.WriteSummaryFileTool"
+    config:
+      type: "native"
+    tool_schema:
+      type: "function"
+      function:
+        name: "write_summary_file"
+        description: "Write or update the summary to a file"
+        parameters:
+          type: "object"
+          properties:
+            summary:
+              type: "string"
+              description: "Summary content to write"
+            file_path:
+              type: "string"
+              description: "Path to the summary file"
+          required: ["summary", "file_path"]
+  
+  - name: "read_summary_file"
+    class_name: "verl.utils.tools.segmented_reading_tools.ReadSummaryFileTool"
+    config:
+      type: "native"
+    tool_schema:
+      type: "function"
+      function:
+        name: "read_summary_file"
+        description: "Read the current summary from a file"
+        parameters:
+          type: "object"
+          properties:
+            file_path:
+              type: "string"
+              description: "Path to the summary file"
+          required: ["file_path"]

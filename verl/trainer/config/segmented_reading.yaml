@@ -1,0 +1,319 @@
+# Segmented Reading Training Configuration
+
+trainer:
+  project_name: "segmented_reading"
+  experiment_name: "smart_reader"
+  default_local_dir: "/user/luzhenyan/checkpoints"
+  
+  # Training parameters
+  total_epochs: 50
+  save_freq: 10
+  test_freq: 5
+  
+  # Device configuration
+  n_gpus_per_node: 1
+  nnodes: 1
+  
+  # Additional required fields
+  device: cuda
+  val_before_train: True
+  val_only: False
+  critic_warmup: 0
+  resume_mode: auto
+  use_legacy_worker_impl: auto
+  
+  # Additional trainer fields
+  balance_batch: True
+  total_training_steps: null
+  log_val_generations: 0
+  rollout_data_dir: null
+  validation_data_dir: null
+
+data:
+  _target_: verl.trainer.config.DataConfig
+  # 数据文件路径（Parquet格式）
+  train_files: "/home/luzhenyan/data/triviaqa_docs/train_small.parquet"
+  val_files: "/home/luzhenyan/data/triviaqa_docs/val.parquet"
+  train_batch_size: 2
+  max_prompt_length: 1024
+  max_response_length: 128
+  return_raw_chat: true  # 必需：返回原始对话
+  # 基础配置
+  tokenizer: null
+  use_shm: false
+  val_batch_size: null
+  return_raw_input_ids: false
+  return_full_prompt: false
+  shuffle: true
+  dataloader_num_workers: 1
+  validation_shuffle: false
+  filter_overlong_prompts: true
+  filter_overlong_prompts_workers: 1
+  truncation: error
+  image_key: images
+  video_key: videos
+  trust_remote_code: false
+  return_multi_modal_inputs: true
+  # 工具调用配置
+  apply_chat_template_kwargs: {}
+  prompt_key: "prompt"
+  reward_fn_key: "reward"
+  # 采样器配置
+  sampler:
+    class_path: null
+    class_name: null
+  # 自定义数据集类
+  custom_cls:
+    path: null
+    name: null
+  # 数据生成配置
+  datagen:
+    path: null
+    name: null
+
+actor_rollout_ref:
+  # 启用混合引擎
+  hybrid_engine: true
+  # 模型配置
+  model:
+    path: "/home/luzhenyan/models/Qwen2.5-0.5B-Instruct/snapshots/7ae557604adf67be50417f59c2c2f167def9a775"
+    custom_chat_template: null
+    use_shm: false
+    external_lib: null
+    override_config: {}
+    enable_gradient_checkpointing: true
+    enable_activation_offload: true
+    use_remove_padding: false
+    lora_rank: 0
+    lora_alpha: 16
+    target_modules: all-linear
+    exclude_modules: null
+    use_liger: false
+    use_fused_kernels: false
+    trust_remote_code: false
+  actor:
+    use_dynamic_bsz: false
+    _target_: verl.workers.config.FSDPActorConfig
+    strategy: fsdp
+    grad_clip: 1.0
+    ulysses_sequence_parallel_size: 1
+    entropy_from_logits_with_chunking: False
+    entropy_checkpointing: False
+    use_kl_loss: False
+    ppo_max_token_len_per_gpu: 16384
+    ppo_epochs: 1
+    shuffle: false
+    use_torch_compile: true
+    clip_ratio: 0.2
+    entropy_coeff: 0
+    loss_agg_mode: token-mean
+    optim:
+      _target_: verl.workers.config.FSDPOptimizerConfig
+      lr: 1e-6
+      min_lr_ratio: 0.0
+      num_cycles: 0.5
+      warmup_style: constant
+    ppo_mini_batch_size: 2
+    ppo_micro_batch_size_per_gpu: 1
+    fsdp_config:
+      _target_: verl.workers.config.FSDPEngineConfig
+      wrap_policy:
+        min_num_params: 0
+      param_offload: true
+      optimizer_offload: true
+      offload_policy: false
+      reshard_after_forward: true
+      fsdp_size: -1
+      forward_prefetch: False
+  rollout:
+    name: "sglang"
+    mode: async
+    temperature: 1.0
+    top_k: -1
+    top_p: 1
+    prompt_length: ${oc.select:data.max_prompt_length,512}
+    response_length: ${oc.select:data.max_response_length,512}
+    dtype: bfloat16
+    tensor_model_parallel_size: 1
+    gpu_memory_utilization: 0.6
+    ignore_eos: False
+    enforce_eager: False
+    free_cache_engine: True
+    max_num_batched_tokens: 2048
+    max_num_seqs: 256
+    max_model_len: null
+    # log_prob相关配置
+    log_prob_micro_batch_size: null
+    log_prob_micro_batch_size_per_gpu: null
+    log_prob_max_token_len_per_gpu: 16384
+    log_prob_use_dynamic_bsz: false
+    disable_log_stats: True
+    # 生成参数
+    do_sample: True
+    n: 1  # 生成响应数量
+    over_sample_rate: 0
+    # 其他配置
+    enable_chunked_prefill: true
+    load_format: dummy_dtensor
+    layered_summon: false
+    calculate_log_probs: false
+    multi_stage_wake_up: false
+    # 多轮对话配置
+    multi_turn: True  # 注意：是True而不是enable: true
+    # 工具配置
+    tool_kwargs:
+      tools_config_file: verl/utils/tools/segmented_reading_tools.yaml
+    # 引擎参数
+    engine_kwargs:
+      vllm: {}
+      sglang: {}
+    # 验证参数
+    val_kwargs:
+      _target_: verl.workers.config.SamplingConfig
+      top_k: -1
+      top_p: 1.0
+      temperature: 0
+      n: 1
+      do_sample: False
+
+  ref:
+    model: null
+    fsdp_config:
+      _target_: verl.workers.config.FSDPEngineConfig
+      wrap_policy:
+        min_num_params: 0
+      param_offload: False
+      reshard_after_forward: True
+      forward_prefetch: False
+    ulysses_sequence_parallel_size: ${oc.select:actor.ulysses_sequence_parallel_size,1}
+    entropy_from_logits_with_chunking: False
+    entropy_checkpointing: False
+
+critic:
+  _target_: verl.workers.config.FSDPCriticConfig
+  enable: true
+  strategy: fsdp
+  grad_clip: 1.0
+  ulysses_sequence_parallel_size: 1
+  entropy_from_logits_with_chunking: False
+  entropy_checkpointing: False
+  use_dynamic_bsz: false
+  forward_max_token_len_per_gpu: 4096
+  ppo_max_token_len_per_gpu: 32768
+  ppo_epochs: 1
+  shuffle: false
+  loss_agg_mode: token-mean
+  cliprange_value: 0.5
+  model:
+    path: "/home/luzhenyan/models/Qwen2.5-0.5B-Instruct/snapshots/7ae557604adf67be50417f59c2c2f167def9a775"
+    custom_chat_template: null
+    use_shm: false
+    external_lib: null
+    override_config: {}
+    enable_gradient_checkpointing: true
+    enable_activation_offload: true
+    use_remove_padding: false
+    lora_rank: 0
+    lora_alpha: 16
+    target_modules: all-linear
+    exclude_modules: null
+    use_liger: false
+    use_fused_kernels: false
+    trust_remote_code: false
+  optim:
+    _target_: verl.workers.config.FSDPOptimizerConfig
+    lr: 1e-5
+    min_lr_ratio: 0.0
+    num_cycles: 0.5
+    warmup_style: constant
+  ppo_micro_batch_size_per_gpu: 1
+  fsdp_config:
+    _target_: verl.workers.config.FSDPEngineConfig
+    wrap_policy:
+      min_num_params: 0
+    param_offload: false
+    optimizer_offload: false
+    offload_policy: false
+    reshard_after_forward: true
+    fsdp_size: -1
+    forward_prefetch: False
+
+algorithm:
+  _target_: verl.trainer.config.AlgoConfig
+  gamma: 1.0
+  lam: 1.0
+  adv_estimator: gae
+  norm_adv_by_std_in_grpo: True
+  use_kl_in_reward: False
+  kl_penalty: kl
+  kl_ctrl:
+    _target_: verl.trainer.config.KLControlConfig
+    type: fixed
+    kl_coef: 0.001
+    horizon: 10000
+    target_kl: 0.1
+  use_pf_ppo: False
+
+# Custom reward function definition
+custom_reward_function:
+  path: verl/utils/reward_score/segmented_reading.py
+  name: compute_segmented_reading_reward
+
+reward_model:
+  enable: False
+  strategy: fsdp
+  model:
+    input_tokenizer: ${actor_rollout_ref.model.path}
+    path: ${actor_rollout_ref.model.path}
+    external_lib: ${actor_rollout_ref.model.external_lib}
+    trust_remote_code: False
+  micro_batch_size: null
+  micro_batch_size_per_gpu: null
+  max_length: null
+  use_dynamic_bsz: ${critic.use_dynamic_bsz}
+  forward_max_token_len_per_gpu: ${critic.forward_max_token_len_per_gpu}
+  reward_manager: naive
+  launch_reward_fn_async: False
+  sandbox_fusion:
+    url: null
+    max_concurrent: 64
+    memory_limit_mb: 1024
+  profiler:
+    _target_: verl.utils.profiler.ProfilerConfig
+    tool: ${oc.select:global_profiler.tool,null}
+    enable: False
+    all_ranks: False
+    ranks: []
+    save_path: ${oc.select:global_profiler.save_path,null}
+    tool_config: ${oc.select:actor_rollout_ref.actor.profiler.tool_config,null}
+
+# Tool configuration
+tools:
+  reading_tools:
+    enabled: true
+    max_segment_length: 500
+    max_segments_per_doc: 20
+    min_segments_to_read: 2
+    max_segments_to_read: 15
+
+# Environment configuration
+environment:
+  type: "segmented_reading"
+  max_document_length: 10000
+  max_summary_length: 1000
+  max_reread_count: 5
+  chunk_size: 1000
+
+# Ray configuration
+ray_kwargs:
+  ray_init:
+    num_cpus: null
+  timeline_json_file: null
+
+# Global profiler configuration
+global_profiler:
+  _target_: verl.utils.profiler.ProfilerConfig
+  tool: null
+  steps: null
+  profile_continuous_steps: False
+  save_path: "outputs/profile"

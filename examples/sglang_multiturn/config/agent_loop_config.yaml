@@ -1,0 +1,9 @@
+# Agent Loop配置 - GSM8K工具调用任务
+agent_loops:
+  - name: "tool_agent"
+    _target_: verl.experimental.agent_loop.tool_agent_loop.ToolAgentLoop
+  - name: "single_turn_agent"
+    _target_: verl.experimental.agent_loop.single_turn_agent_loop.SingleTurnAgentLoop
+
+
+
