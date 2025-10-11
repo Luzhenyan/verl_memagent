@@ -7,7 +7,6 @@
 - [🎯 项目概述](#-项目概述)
 - [💻 环境要求](#-环境要求)
 - [🚀 快速开始](#-快速开始)
-- [📚 使用方式](#-使用方式)
 - [⚙️ 关键配置说明](#️-关键配置说明)
 - [🔧 实现说明](#-实现说明)
 
@@ -28,13 +27,13 @@
 ## 💻 环境要求
 
 ### 软件环境
-参考verl需要的环境
+参考VERL环境要求
 
 ---
 
 ## 🚀 快速开始
 
-### 1. 安装依赖
+### 步骤1：安装依赖
 
 ```bash
 # 克隆仓库
@@ -43,23 +42,13 @@ cd verl_memagent
 
 # 安装 VERL
 pip install -e .
-
-# 安装额外依赖
-pip install tensorboard datasets pandas pyarrow
 ```
 
----
-
-## 📚 使用方式
-
-### 步骤1：下载模型
+### 步骤2：下载模型
 
 运行项目提供的下载脚本：
 
 ```bash
-cd /home/luzhenyan/verl
-
-
 # 运行下载脚本
 python download_model.py
 ```
@@ -75,18 +64,11 @@ python download_model.py
 
 ---
 
-### 步骤2：准备数据集
-
-#### 2.1 数据集下载和预处理
+### 步骤3：准备数据集
 
 运行数据预处理脚本：
 
 ```bash
-cd /home/luzhenyan/verl
-
-# 安装依赖（如果未安装）
-pip install datasets pandas pyarrow
-
 # 运行预处理脚本
 python scripts/prepare_full_triviaqa.py
 ```
@@ -97,7 +79,7 @@ python scripts/prepare_full_triviaqa.py
 3. 生成 VERL 格式的训练数据（train.parquet 和 val.parquet）
 4. 创建文档 JSON 文件和空的摘要文件
 
-#### 2.2 生成的文件结构
+**生成的文件结构**：
 
 ```
 ~/data/triviaqa_docs/
@@ -115,9 +97,7 @@ python scripts/prepare_full_triviaqa.py
 └── document_999_summary.txt
 ```
 
-#### 2.3 数据格式详解
-
-**Parquet 文件中每个样本**：
+**数据格式**（Parquet 文件中每个样本）：
 ```json
 {
     "data_source": "segmented_reading",
@@ -142,31 +122,9 @@ python scripts/prepare_full_triviaqa.py
 }
 ```
 
-**文档文件（document_*.json）**：
-```json
-{
-    "question": "Where in England was Dame Judi Dench born?",
-    "segments": [
-        {
-            "title": "段落1",
-            "content": "England is a country that is part of the United Kingdom...",
-            "index": 0
-        },
-        {
-            "title": "段落2",
-            "content": "With a population of 53 million...",
-            "index": 1
-        }
-    ],
-    "num_segments": 60
-}
-```
+### 步骤4：启动训练
 
----
-
-### 步骤3：启动训练
-
-#### 3.1 配置 TensorBoard
+**配置 TensorBoard**（可选）：
 
 ```bash
 # 创建日志目录
@@ -178,14 +136,11 @@ mkdir -p /data/tensorboard
 # 在浏览器访问: http://localhost:6006
 ```
 
-#### 3.2 运行训练脚本
+**运行训练**：
 
 ```bash
-cd /home/luzhenyan/verl
 ./run_segmented_reading_gsm8k_based.sh
 ```
-
-**训练脚本**: `run_segmented_reading_gsm8k_based.sh`
 
 ---
 
