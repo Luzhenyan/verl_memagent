@@ -17,8 +17,8 @@
 本项目实现了一个基于强化学习的分段阅读系统，主要特点：
 
 - **任务**: 长文档阅读理解（TriviaQA 数据集）
-- **算法**: GRPO (Group Relative Policy Optimization)
-- **框架**: VERL (VLLM-Enhanced Reinforcement Learning)
+- **算法**: GRPO
+- **框架**: VERL
 - **模型**: Qwen2.5-1.5B-Instruct
 - **特色**: 工具调用 + 多轮对话 + 分段阅读策略
 
