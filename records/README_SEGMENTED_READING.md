@@ -14,7 +14,7 @@
 
 ```bash
 # 创建数据目录
-mkdir -p /user/luzhenyan/data/segmented_docs
+mkdir -p /user/wangyicheng/data/segmented_docs
 
 # 生成示例数据
 cd verl
@@ -120,16 +120,16 @@ tools:
 
 ## 监控训练
 
-训练日志保存在 `/user/luzhenyan/segmented_reading.log`
+训练日志保存在 `/user/wangyicheng/segmented_reading.log`
 
 ```bash
 # 查看训练进度
-tail -f /user/luzhenyan/segmented_reading.log
+tail -f /user/wangyicheng/segmented_reading.log
 ```
 
 ## 模型输出
 
-训练完成后，模型checkpoints保存在 `/user/luzhenyan/checkpoints/`
+训练完成后，模型checkpoints保存在 `/user/wangyicheng/checkpoints/`
 
 ## 扩展功能
 

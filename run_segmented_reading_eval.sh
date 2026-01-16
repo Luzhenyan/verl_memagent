@@ -12,12 +12,13 @@ export VLLM_USE_V1=1
 export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 export RAY_DEDUP_LOGS=0
 export VERL_LOGGING_LEVEL=INFO
-export TENSORBOARD_DIR=/data/tensorboard
+export RAY_TMPDIR=/var/luzhenyan/tmp
+export TENSORBOARD_DIR=/var/luzhenyan/tensorboard/eval_checkpoint_600
 
 python3 -m verl.trainer.main_ppo \
     --config-path="$CONFIG_PATH" \
     --config-name='gsm8k_multiturn_grpo' \
-    hydra.run.dir=/user/wangyicheng/outputs \
+    hydra.run.dir=/var/luzhenyan/outputs \
     algorithm.adv_estimator=grpo \
     data.train_batch_size=2 \
     data.max_prompt_length=2048 \
@@ -25,7 +26,7 @@ python3 -m verl.trainer.main_ppo \
     data.filter_overlong_prompts=True \
     data.truncation='error' \
     data.return_raw_chat=True \
-    actor_rollout_ref.model.path=/var/wangyicheng/models/Qwen/Qwen2.5-1.5B-Instruct \
+    actor_rollout_ref.model.path=/var/wangyicheng/models/Qwen2.5-1.5B-Instruct-segread-gs600 \
     actor_rollout_ref.actor.optim.lr=1e-6 \
     actor_rollout_ref.model.use_remove_padding=True \
     actor_rollout_ref.actor.ppo_mini_batch_size=2 \
@@ -50,15 +51,15 @@ python3 -m verl.trainer.main_ppo \
     trainer.critic_warmup=0 \
     trainer.logger="['console','tensorboard']" \
     trainer.project_name='segmented_reading' \
-    trainer.experiment_name='qwen2.5-1.5b_segmented_reading_full_dataset' \
+    trainer.experiment_name='qwen2.5-1.5b_segmented_reading_eval_100' \
     trainer.n_gpus_per_node=8 \
     trainer.nnodes=1 \
-    trainer.save_freq=200 \
+    trainer.save_freq=-1 \
     trainer.test_freq=1 \
-    trainer.total_training_steps=1000 \
-    data.train_files=/home/wangyicheng/data/triviaqa_docs/train.parquet \
-    data.val_files=/home/wangyicheng/data/triviaqa_docs/val.parquet \
+    trainer.total_training_steps=0\
+    data.train_files=/home/wangyicheng/data/hotpotqa_eval/eval_100/eval_verl.parquet \
+    data.val_files=/home/wangyicheng/data/hotpotqa_eval/eval_100/eval_verl.parquet \
     actor_rollout_ref.rollout.multi_turn.tool_config_path="$PROJECT_DIR/verl/utils/tools/segmented_reading_tools.yaml" \
-    trainer.total_epochs=3 $@
+    trainer.total_epochs=1 $@
 
 

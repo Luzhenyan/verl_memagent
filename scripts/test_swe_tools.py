@@ -80,7 +80,7 @@ async def test_swe_read_document_tool():
     
     # Test reading segment with semantic segmentation
     parameters = {
-        "file_path": "/user/luzhenyan/data/segmented_docs/doc1.txt",
+        "file_path": "/user/wangyicheng/data/segmented_docs/doc1.txt",
         "segment_index": 0,
         "segment_method": "semantic"
     }

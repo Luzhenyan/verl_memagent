@@ -90,7 +90,7 @@ python scripts/prepare_full_triviaqa.py
 ├── ...
 └── document_999.json
 
-/user/luzhenyan/           # 可写目录，存放摘要文件
+/user/wangyicheng/           # 可写目录，存放摘要文件
 ├── document_0_summary.txt  # 空的摘要文件
 ├── document_1_summary.txt
 ├── ...
@@ -104,7 +104,7 @@ python scripts/prepare_full_triviaqa.py
     "prompt": [
         {
             "role": "user",
-            "content": "Please read the document and answer the question: Where in England was Dame Judi Dench born?\n\nDocument information:\n- Document file: /home/luzhenyan/data/triviaqa_docs/document_0.json\n- Total segments: 60\n- Summary file: /user/luzhenyan/document_0_summary.txt\n\nInstructions:\n1. Use read_segment_file to read specific segments from the document\n2. After each reading, use write_summary_file to save your progress\n3. Use read_summary_file to check your previous progress if needed\n\nPlease start reading the document segment by segment."
+            "content": "Please read the document and answer the question: Where in England was Dame Judi Dench born?\n\nDocument information:\n- Document file: /home/wangyicheng/data/triviaqa_docs/document_0.json\n- Total segments: 60\n- Summary file: /user/wangyicheng/document_0_summary.txt\n\nInstructions:\n1. Use read_segment_file to read specific segments from the document\n2. After each reading, use write_summary_file to save your progress\n3. Use read_summary_file to check your previous progress if needed\n\nPlease start reading the document segment by segment."
         }
     ],
     "ability": "reading_comprehension",
@@ -115,7 +115,7 @@ python scripts/prepare_full_triviaqa.py
     "agent_name": "tool_agent",
     "extra_info": {
         "question": "Where in England was Dame Judi Dench born?",
-        "document_file": "/home/luzhenyan/data/triviaqa_docs/document_0.json",
+        "document_file": "/home/wangyicheng/data/triviaqa_docs/document_0.json",
         "num_segments": 60,
         "split": "train"
     }
@@ -169,8 +169,8 @@ actor_rollout_ref.model.use_remove_padding=True                   # 优化计算
 data.train_batch_size=2                   # 训练批次大小
 data.max_prompt_length=2048               # 最大提示长度
 data.max_response_length=2048             # 最大响应长度
-data.train_files=/home/luzhenyan/data/triviaqa_docs/train.parquet  # 训练数据
-data.val_files=/home/luzhenyan/data/triviaqa_docs/val.parquet      # 验证数据
+data.train_files=/home/wangyicheng/data/triviaqa_docs/train.parquet  # 训练数据
+data.val_files=/home/wangyicheng/data/triviaqa_docs/val.parquet      # 验证数据
 ```
 
 #### 4. GRPO 算法配置

@@ -32,7 +32,7 @@ $PYTHON_BIN -c "import ray" >/dev/null 2>&1 || {
   exit 1
 }
 
-export VLLM_USE_V1="${VLLM_USE_V1:-0}"
+export VLLM_USE_V1="${VLLM_USE_V1:-1}"
 export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0,1,2,3,4,5,6,7}"
 echo "CUDA_VISIBLE_DEVICES: $CUDA_VISIBLE_DEVICES"
 export RAY_DEDUP_LOGS="${RAY_DEDUP_LOGS:-0}"
@@ -76,13 +76,13 @@ echo "[run_sw] Using N_GPUS_PER_NODE=$N_GPUS_PER_NODE"
 
 # 训练参数（先给一个可跑的默认；可通过环境变量覆盖）
 TRAIN_BATCH_SIZE="${TRAIN_BATCH_SIZE:-4}"
-MAX_PROMPT_LEN="${MAX_PROMPT_LEN:-4096}"     # prompt 只有 question；长文在 context 字段里由 agent loop 手动切块
-MAX_RESP_LEN="${MAX_RESP_LEN:-43008}"        # 恢复较大的响应长度
-MAX_MODEL_LEN="${MAX_MODEL_LEN:-65536}"       # 恢复较大的上下文长度
+MAX_PROMPT_LEN="${MAX_PROMPT_LEN:-2000}"     # prompt 只有 question；长文在 context 字段里由 agent loop 手动切块
+MAX_RESP_LEN="${MAX_RESP_LEN:-38960}"        # 恢复较大的响应长度
+MAX_MODEL_LEN="${MAX_MODEL_LEN:-40960}"       # 恢复较大的上下文长度
 TOTAL_STEPS="${TOTAL_STEPS:-500}"
 TOTAL_EPOCHS="${TOTAL_EPOCHS:-3}"
 GPU_MEM_UTIL="${GPU_MEM_UTIL:-0.8}"
-ROLLOUT_N="${ROLLOUT_N:-8}"
+ROLLOUT_N="${ROLLOUT_N:-4}"
 
 # PPO / update 相关：当使用更多 GPU（例如 8 卡）时，ppo_mini_batch_size 太小可能会在 worker 初始化时被归一化成 0。
 # 经验上：至少设为 >= N_GPUS_PER_NODE（或更大）更稳。
@@ -125,6 +125,9 @@ $PYTHON_BIN -m verl.trainer.main_ppo \
   actor_rollout_ref.model.use_remove_padding=True \
   actor_rollout_ref.actor.ppo_mini_batch_size="$PPO_MINI_BSZ" \
   actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=1 \
+  actor_rollout_ref.actor.use_dynamic_bsz=True \
+  actor_rollout_ref.actor.ppo_max_token_len_per_gpu=24576 \
+  actor_rollout_ref.actor.ulysses_sequence_parallel_size=4 \
   actor_rollout_ref.actor.use_kl_loss=True \
   actor_rollout_ref.actor.kl_loss_coef=0.001 \
   actor_rollout_ref.actor.kl_loss_type=low_var_kl \
@@ -142,7 +145,6 @@ $PYTHON_BIN -m verl.trainer.main_ppo \
   actor_rollout_ref.rollout.top_p=1.0 \
   actor_rollout_ref.rollout.top_k=-1 \
   actor_rollout_ref.rollout.max_model_len="$MAX_MODEL_LEN" \
-  actor_rollout_ref.rollout.engine_kwargs.vllm.enable_prefix_caching=False \
   actor_rollout_ref.rollout.agent.num_workers=1 \
   actor_rollout_ref.rollout.multi_turn.enable=True \
   actor_rollout_ref.rollout.multi_turn.tool_config_path=null \

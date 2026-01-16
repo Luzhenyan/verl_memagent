@@ -338,7 +338,7 @@ Please start reading the document segment by segment.
 **目标**: 验证 `read_segment_file` 工具能否正确读取文档的指定段落
 
 **测试方法**: 创建测试脚本，验证工具的核心功能
-- 测试文档：`/home/luzhenyan/data/triviaqa_docs/document_0.json`
+- 测试文档：`/home/wangyicheng/data/triviaqa_docs/document_0.json`
 - 测试段落：0, 1, 2, 59（覆盖开头、中间、结尾段落）
 - 验证内容：段落索引、内容完整性、错误处理
 
@@ -427,7 +427,7 @@ def save_document_file(sample, segments, output_dir, doc_index):
 
 ### 文件结构确认
 ```
-/home/luzhenyan/data/triviaqa_docs/
+/home/wangyicheng/data/triviaqa_docs/
 ├── document_0.json          # 文档文件
 ├── document_0_summary.txt   # 对应的summary文件
 ├── document_1.json
@@ -453,10 +453,10 @@ def save_document_file(sample, segments, output_dir, doc_index):
 #### 1. 模型路径更新
 ```bash
 # Actor模型
-actor_rollout_ref.model.path=/home/luzhenyan/models/Qwen2.5-7B-Instruct
+actor_rollout_ref.model.path=/var/wangyicheng/models/Qwen2.5-7B-Instruct
 
 # Critic模型  
-critic.model.path=/home/luzhenyan/models/Qwen2.5-7B-Instruct
+critic.model.path=/var/wangyicheng/models/Qwen2.5-7B-Instruct
 ```
 
 #### 2. 双GPU优化配置
@@ -493,7 +493,7 @@ actor_rollout_ref.rollout.agent.num_workers=4  # 恢复worker数量
 - 需要更仔细的内存管理
 
 ### 配置验证
-**✅ 模型文件存在**：`/home/luzhenyan/models/Qwen2.5-7B-Instruct/`
+**✅ 模型文件存在**：`/var/wangyicheng/models/Qwen2.5-7B-Instruct/`
 **✅ 配置文件完整**：包含config.json、tokenizer等
 **✅ 双GPU配置**：tensor_model_parallel_size=2
 **✅ 内存优化**：gpu_memory_utilization=0.9
@@ -631,10 +631,10 @@ VERL框架要求：
 #### 1. 模型配置优化
 ```bash
 # Actor模型：保持7B（负责生成和工具调用）
-actor_rollout_ref.model.path=/home/luzhenyan/models/Qwen2.5-7B-Instruct
+actor_rollout_ref.model.path=/var/wangyicheng/models/Qwen2.5-7B-Instruct
 
 # Critic模型：降级到0.5B（只负责价值估计）
-critic.model.path=/home/luzhenyan/models/Qwen2.5-0.5B-Instruct
+critic.model.path=/var/wangyicheng/models/Qwen2.5-0.5B-Instruct
 ```
 
 #### 2. 显存节省效果
@@ -688,19 +688,19 @@ critic.model.path=/home/luzhenyan/models/Qwen2.5-0.5B-Instruct
 ## 2025-09-18 Summary文件路径修复
 
 ### 问题发现
-**错误**: `[Errno 30] Read-only file system: '/home/luzhenyan/data/triviaqa_docs/document_5_summary.txt'`
-**原因**: `/home/luzhenyan/data/` 目录是只读文件系统，无法写入summary文件
+**错误**: `[Errno 30] Read-only file system: '/home/wangyicheng/data/triviaqa_docs/document_5_summary.txt'`
+**原因**: `/home/wangyicheng/data/` 目录是只读文件系统，无法写入summary文件
 
 ### 解决方案
-将summary文件移动到可写目录 `/user/luzhenyan/`：
+将summary文件移动到可写目录 `/user/wangyicheng/`：
 
 #### 1. 修改数据准备脚本
 ```python
 # 修改前：summary文件保存在数据目录
 summary_file_path = output_dir / f"document_{doc_index}_summary.txt"
 
-# 修改后：summary文件保存在/user/luzhenyan目录
-summary_file_path = Path("/user/luzhenyan") / f"document_{doc_index}_summary.txt"
+# 修改后：summary文件保存在/user/wangyicheng目录
+summary_file_path = Path("/user/wangyicheng") / f"document_{doc_index}_summary.txt"
 ```
 
 #### 2. 更新prompt中的文件路径
@@ -709,30 +709,30 @@ summary_file_path = Path("/user/luzhenyan") / f"document_{doc_index}_summary.txt
 "Summary file: {doc_file_path.replace('.json', '_summary.txt')}"
 
 # 修改后：使用绝对路径
-"Summary file: /user/luzhenyan/{Path(doc_file_path).stem}_summary.txt"
+"Summary file: /user/wangyicheng/{Path(doc_file_path).stem}_summary.txt"
 ```
 
 #### 3. 确保目录存在
 ```python
-# 自动创建/user/luzhenyan目录
+# 自动创建/user/wangyicheng目录
 summary_file_path.parent.mkdir(parents=True, exist_ok=True)
 ```
 
 ### 文件结构更新
 ```
 原始结构：
-/home/luzhenyan/data/triviaqa_docs/
+/home/wangyicheng/data/triviaqa_docs/
 ├── document_0.json
 ├── document_0_summary.txt  # ❌ 只读，无法写入
 └── ...
 
 新结构：
-/home/luzhenyan/data/triviaqa_docs/
+/home/wangyicheng/data/triviaqa_docs/
 ├── document_0.json
 ├── document_1.json
 └── ...
 
-/user/luzhenyan/
+/user/wangyicheng/
 ├── document_0_summary.txt  # ✅ 可写
 ├── document_1_summary.txt
 └── ...
@@ -740,7 +740,7 @@ summary_file_path.parent.mkdir(parents=True, exist_ok=True)
 
 ### 功能验证
 **✅ 写入测试**：
-- 成功写入测试内容到 `/user/luzhenyan/document_0_summary.txt`
+- 成功写入测试内容到 `/user/wangyicheng/document_0_summary.txt`
 - 工具返回正确的成功消息和评分
 - 文件内容正确保存
 
@@ -750,7 +750,7 @@ summary_file_path.parent.mkdir(parents=True, exist_ok=True)
 - 评分和元数据正确
 
 ### 配置验证
-**✅ 文件路径**: 所有summary文件现在保存在 `/user/luzhenyan/`
+**✅ 文件路径**: 所有summary文件现在保存在 `/user/wangyicheng/`
 **✅ 权限检查**: 目录可写，工具能正常执行
 **✅ 数据一致性**: prompt中的路径与实际文件路径匹配
 **✅ 工具功能**: 读写功能都正常工作
@@ -828,31 +828,31 @@ actor_rollout_ref.rollout.multi_turn.max_assistant_turns=5  # 最大助手轮数
 
 echo "正在清空所有summary文件..."
 
-# 清空/user/luzhenyan目录下的所有summary文件
-if [ -d "/user/luzhenyan" ]; then
+# 清空/user/wangyicheng目录下的所有summary文件
+if [ -d "/user/wangyicheng" ]; then
     # 删除所有summary文件
-    rm -f /user/luzhenyan/document_*_summary.txt
-    echo "已清空 /user/luzhenyan/ 目录下的所有summary文件"
+    rm -f /user/wangyicheng/document_*_summary.txt
+    echo "已清空 /user/wangyicheng/ 目录下的所有summary文件"
     
     # 重新创建空的summary文件
     for i in {0..23}; do
-        touch /user/luzhenyan/document_${i}_summary.txt
+        touch /user/wangyicheng/document_${i}_summary.txt
     done
     echo "已重新创建24个空的summary文件"
 else
-    echo "创建 /user/luzhenyan 目录..."
-    mkdir -p /user/luzhenyan
+    echo "创建 /user/wangyicheng 目录..."
+    mkdir -p /user/wangyicheng
     
     # 创建空的summary文件
     for i in {0..23}; do
-        touch /user/luzhenyan/document_${i}_summary.txt
+        touch /user/wangyicheng/document_${i}_summary.txt
     done
     echo "已创建24个空的summary文件"
 fi
 
 echo "Summary文件清空完成！"
 echo "文件列表："
-ls -la /user/luzhenyan/document_*_summary.txt
+ls -la /user/wangyicheng/document_*_summary.txt
 ```
 
 #### 2. 使用方法

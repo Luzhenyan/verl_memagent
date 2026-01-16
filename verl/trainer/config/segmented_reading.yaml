@@ -3,7 +3,7 @@
 trainer:
   project_name: "segmented_reading"
   experiment_name: "smart_reader"
-  default_local_dir: "/user/luzhenyan/checkpoints"
+  default_local_dir: "/user/wangyicheng/checkpoints"
   
   # Training parameters
   total_epochs: 50
@@ -32,8 +32,8 @@ trainer:
 data:
   _target_: verl.trainer.config.DataConfig
   # 数据文件路径（Parquet格式）
-  train_files: "/home/luzhenyan/data/triviaqa_docs/train_small.parquet"
-  val_files: "/home/luzhenyan/data/triviaqa_docs/val.parquet"
+  train_files: "/home/wangyicheng/data/triviaqa_docs/train_small.parquet"
+  val_files: "/home/wangyicheng/data/triviaqa_docs/val.parquet"
   train_batch_size: 2
   max_prompt_length: 1024
   max_response_length: 128
@@ -76,7 +76,7 @@ actor_rollout_ref:
   hybrid_engine: true
   # 模型配置
   model:
-    path: "/home/luzhenyan/models/Qwen2.5-0.5B-Instruct/snapshots/7ae557604adf67be50417f59c2c2f167def9a775"
+    path: "/var/wangyicheng/models/Qwen2.5-0.5B-Instruct/snapshots/7ae557604adf67be50417f59c2c2f167def9a775"
     custom_chat_template: null
     use_shm: false
     external_lib: null
@@ -205,7 +205,7 @@ critic:
   loss_agg_mode: token-mean
   cliprange_value: 0.5
   model:
-    path: "/home/luzhenyan/models/Qwen2.5-0.5B-Instruct/snapshots/7ae557604adf67be50417f59c2c2f167def9a775"
+    path: "/var/wangyicheng/models/Qwen2.5-0.5B-Instruct/snapshots/7ae557604adf67be50417f59c2c2f167def9a775"
     custom_chat_template: null
     use_shm: false
     external_lib: null

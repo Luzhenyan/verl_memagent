@@ -1,7 +1,7 @@
 set -x
 
 
-# download from https://huggingface.co/datasets/PRIME-RL/Eurus-2-RL-Data
+# download from https://hf-mirror.com/datasets/PRIME-RL/Eurus-2-RL-Data
 code_train_path=$HOME/data/code/train.parquet
 code_test_path=$HOME/data/code/test.parquet
 

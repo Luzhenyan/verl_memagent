@@ -17,7 +17,7 @@ Refer to the table below to reproduce RL training from different pre-trained che
 
 | Hardware    | Model                            | Method            | Test score   | Details |
 |-------------|----------------------------------|-------------------|--------------|---------|
-| NVIDIA GPU  | google/gemma-2-2b-it             | hf checkpoint     | 23.9         | [Huggingface](https://huggingface.co/google/gemma-2-2b-it#benchmark-results) |
+| NVIDIA GPU  | google/gemma-2-2b-it             | hf checkpoint     | 23.9         | [Huggingface](https://hf-mirror.com/google/gemma-2-2b-it#benchmark-results) |
 | NVIDIA GPU  | google/gemma-2-2b-it             | SFT               | 52.06        | [command and logs](https://github.com/eric-haibin-lin/verl-data/blob/experiments/gsm8k/gemma-2-2b-it-sft-0.411.log) |
 | NVIDIA GPU  | google/gemma-2-2b-it             | SFT + PPO         | 64.02        | [command and logs](https://github.com/eric-haibin-lin/verl-data/blob/experiments/gsm8k/gemma-2-2b-it-ppo-bsz512_4-prompt1024-resp-512-0.640.log), [wandb](https://api.wandb.ai/links/verl-team/h7ux8602) |
 | NVIDIA GPU  | Qwen/Qwen2.5-0.5B-Instruct       | hf checkpoint     | 36.4         | [Qwen blog](https://qwenlm.github.io/blog/qwen2.5-llm/) |
@@ -47,8 +47,8 @@ Refer to the table below to reproduce RL training from different pre-trained che
 
 ### DAPO math-17k
 
-- Training DAPO math-17k dataset: https://huggingface.co/datasets/BytedTsinghua-SIA/DAPO-Math-17k
-- Testing: AIME'24: https://huggingface.co/datasets/BytedTsinghua-SIA/AIME-2024
+- Training DAPO math-17k dataset: https://hf-mirror.com/datasets/BytedTsinghua-SIA/DAPO-Math-17k
+- Testing: AIME'24: https://hf-mirror.com/datasets/BytedTsinghua-SIA/AIME-2024
 
 Note:
 - For Qwen/Qwen2.5-Math-7B, we directly modify the max_position_embeddings to 32768 without observing performance degradation in order to train longer response length.

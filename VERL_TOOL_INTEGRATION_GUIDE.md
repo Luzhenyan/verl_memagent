@@ -241,7 +241,7 @@ custom_reward_function:
 ### 步骤1: 确保工具注册
 ```bash
 # 检查工具是否正确注册
-cd /home/luzhenyan/verl
+cd /home/wangyicheng/verl
 python -c "from verl.tools import ReadDocumentTool; print('Tools registered successfully')"
 ```
 
@@ -260,7 +260,7 @@ python -c "from verl.utils.reward_score.segmented_reading import compute_segment
 ### 步骤4: 运行训练
 ```bash
 # 运行训练
-cd /home/luzhenyan/verl
+cd /home/wangyicheng/verl
 ./run_simple_demo.sh
 ```
 
@@ -433,21 +433,21 @@ verl_sample = {
 #### 4. 验证工具配置
 **操作**: 测试工具配置是否正确加载
 ```bash
-cd /home/luzhenyan/verl
+cd /home/wangyicheng/verl
 python -c "import yaml; config = yaml.safe_load(open('verl/verl/utils/tools/segmented_reading_tools.yaml')); print('Tool config loaded successfully')"
 ```
 
 #### 4. 测试工具注册
 **操作**: 验证工具是否正确注册
 ```bash
-cd /home/luzhenyan/verl
+cd /home/wangyicheng/verl
 python -c "from verl.tools import ReadDocumentTool; print('Tools registered successfully')"
 ```
 
 #### 5. 测试奖励函数
 **操作**: 验证奖励函数是否可以导入
 ```bash
-cd /home/luzhenyan/verl
+cd /home/wangyicheng/verl
 python -c "from verl.utils.reward_score.segmented_reading import compute_segmented_reading_reward; print('Reward function imported successfully')"
 ```
 

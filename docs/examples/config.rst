@@ -665,7 +665,7 @@ Most parameters for Model are similar to Reward Model.
   we will train LoRA modules instead of tuning the full model.
 - ``lora_alpha``: The alpha parameter for LoRA scaling, default to 16.
 - ``target_modules``: The names of the modules to apply the adapter to,
-  default to ``all-linear``. See `peft docs <https://huggingface.co/docs/peft/v0.15.0/en/package_reference/lora#peft.LoraConfig.target_modules>`_ for detail.
+  default to ``all-linear``. See `peft docs <https://hf-mirror.com/docs/peft/v0.15.0/en/package_reference/lora#peft.LoraConfig.target_modules>`_ for detail.
 
 - ``use_liger``: Whether to enable Liger kernel, default to False. If True,
   we apply Liger kernel to the model (depends on `liger-kernel`).

@@ -212,7 +212,7 @@ actor_rollout_ref:
 python3 -m verl.trainer.main_ppo \
   --config-path=verl/verl/trainer/config \
   --config-name=segmented_reading \
-  hydra.run.dir=/user/luzhenyan
+  hydra.run.dir=/user/wangyicheng
 ```
 
 ### 6. 数据准备 (`verl/scripts/prepare_segmented_data.py`)
@@ -1271,8 +1271,8 @@ actor_rollout_ref:
 **配置结构**：
 ```yaml
 data:
-  train_files: "/home/luzhenyan/data/triviaqa_docs/train.parquet"
-  val_files: "/home/luzhenyan/data/triviaqa_docs/val.parquet"
+  train_files: "/home/wangyicheng/data/triviaqa_docs/train.parquet"
+  val_files: "/home/wangyicheng/data/triviaqa_docs/val.parquet"
   max_prompt_length: 4096
   max_response_length: 512
 

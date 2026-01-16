@@ -1,5 +1,5 @@
 #!/bin/bash
-# 自定义运行脚本 - 设置输出目录为 /user/luzhenyan
+# 自定义运行脚本 - 设置输出目录为 /user/wangyicheng
 # make sure your current working directory is the root of the project
 
 set -x
@@ -7,7 +7,7 @@ set -x
 ulimit -n 65535
 
 PROJECT_DIR="$(pwd)"
-CONFIG_PATH="$PROJECT_DIR/examples/sglang_multiturn/config"
+CONFIG_PATH="$PROJECT_DIR/verl_memagent/examples/sglang_multiturn/config"
 
 now() {
     date '+%d-%H-%M'
@@ -16,7 +16,8 @@ now() {
 EXPERIMENT_NAME="qwen2.5-3b_baseline_$(now)"
 
 # 创建输出目录
-mkdir -p /user/luzhenyan
+mkdir -p /var/luzhenyan/outputs
+export RAY_TMPDIR=/var/luzhenyan/tmp
 
 python3 -m verl.trainer.main_ppo \
     --config-path="$CONFIG_PATH" \
@@ -41,7 +42,7 @@ python3 -m verl.trainer.main_ppo \
     actor_rollout_ref.actor.fsdp_config.param_offload=False \
     actor_rollout_ref.actor.fsdp_config.optimizer_offload=False \
     global_profiler.tool=torch_memory \
-    global_profiler.save_path=/user/luzhenyan/mem_snapshots \
+    global_profiler.save_path=/var/luzhenyan/mem_snapshots \
     global_profiler.global_tool_config.torch_memory.trace_alloc_max_entries=100000 \
     global_profiler.global_tool_config.torch_memory.stack_depth=32 \
     actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=32 \
@@ -63,8 +64,8 @@ python3 -m verl.trainer.main_ppo \
     trainer.save_freq=-1 \
     trainer.test_freq=20 \
     trainer.val_before_train=True \
-    trainer.output_dir=/user/luzhenyan/outputs \
-    trainer.checkpoint_dir=/user/luzhenyan/checkpoints \
+    trainer.output_dir=/user/wangyicheng/outputs \
+    trainer.checkpoint_dir=/user/wangyicheng/checkpoints \
     data.train_files=$HOME/data/gsm8k/train.parquet \
     data.val_files=$HOME/data/gsm8k/test.parquet \
     actor_rollout_ref.rollout.multi_turn.tool_config_path="$PROJECT_DIR/examples/sglang_multiturn/config/tool_config/gsm8k_tool_config.yaml" \

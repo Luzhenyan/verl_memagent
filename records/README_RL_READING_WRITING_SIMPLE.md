@@ -153,7 +153,7 @@ class FileTools:
 trainer:
   project_name: "simple_reading_writing"
   experiment_name: "basic_reader"
-  default_local_dir: "/user/luzhenyan/checkpoints"
+  default_local_dir: "/user/wangyicheng/checkpoints"
   
   total_epochs: 50
   save_freq: 10
@@ -163,8 +163,8 @@ trainer:
   nnodes: 1
 
 data:
-  train_files: "/user/luzhenyan/data/simple_docs/train.parquet"
-  val_files: "/user/luzhenyan/data/simple_docs/val.parquet"
+  train_files: "/user/wangyicheng/data/simple_docs/train.parquet"
+  val_files: "/user/wangyicheng/data/simple_docs/val.parquet"
   train_batch_size: 16
   max_prompt_length: 1024
   max_response_length: 512
@@ -202,7 +202,7 @@ algorithm:
 # run_simple_reading.sh
 
 PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
- hydra.run.dir=/user/luzhenyan \
+ hydra.run.dir=/user/wangyicheng \
  data.train_files=$HOME/data/simple_docs/train.parquet \
  data.val_files=$HOME/data/simple_docs/val.parquet \
  data.train_batch_size=16 \
@@ -226,7 +226,7 @@ PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
  trainer.save_freq=10 \
  trainer.test_freq=5 \
  trainer.total_epochs=50 \
- trainer.default_local_dir=/user/luzhenyan/checkpoints 2>&1 | tee /user/luzhenyan/simple_reading.log
+ trainer.default_local_dir=/user/wangyicheng/checkpoints 2>&1 | tee /user/wangyicheng/simple_reading.log
 ```
 
 ## 6. 数据格式

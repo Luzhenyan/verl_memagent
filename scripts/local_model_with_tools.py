@@ -320,7 +320,7 @@ async def test_local_model_with_hotpotqa():
     
     # 加载HotpotQA数据
     try:
-        with open("/home/luzhenyan/datasets/hotpot_dev_distractor_v1.json", "r", encoding="utf-8") as f:
+        with open("/home/wangyicheng/datasets/hotpot_dev_distractor_v1.json", "r", encoding="utf-8") as f:
             data = json.load(f)
         
         # 选择第一个样本进行测试

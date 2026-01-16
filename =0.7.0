@@ -1,0 +1,8 @@
+Looking in indexes: https://pypi.tuna.tsinghua.edu.cn/simple/
+Requirement already satisfied: tiktoken in /home/wangyicheng/.conda/envs/verl_management/lib/python3.10/site-packages (0.6.0)
+Requirement already satisfied: regex>=2022.1.18 in /home/wangyicheng/.conda/envs/verl_management/lib/python3.10/site-packages (from tiktoken) (2025.9.18)
+Requirement already satisfied: requests>=2.26.0 in /home/wangyicheng/.conda/envs/verl_management/lib/python3.10/site-packages (from tiktoken) (2.32.5)
+Requirement already satisfied: charset_normalizer<4,>=2 in /home/wangyicheng/.conda/envs/verl_management/lib/python3.10/site-packages (from requests>=2.26.0->tiktoken) (3.4.3)
+Requirement already satisfied: idna<4,>=2.5 in /home/wangyicheng/.conda/envs/verl_management/lib/python3.10/site-packages (from requests>=2.26.0->tiktoken) (3.10)
+Requirement already satisfied: urllib3<3,>=1.21.1 in /home/wangyicheng/.conda/envs/verl_management/lib/python3.10/site-packages (from requests>=2.26.0->tiktoken) (2.5.0)
+Requirement already satisfied: certifi>=2017.4.17 in /home/wangyicheng/.conda/envs/verl_management/lib/python3.10/site-packages (from requests>=2.26.0->tiktoken) (2025.10.5)

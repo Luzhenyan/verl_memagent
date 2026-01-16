@@ -256,7 +256,7 @@ class SegmentedReadingEnv:
 trainer:
   project_name: "segmented_reading"
   experiment_name: "smart_reader"
-  default_local_dir: "/user/luzhenyan/checkpoints"
+  default_local_dir: "/user/wangyicheng/checkpoints"
   
   total_epochs: 100
   save_freq: 10
@@ -266,8 +266,8 @@ trainer:
   nnodes: 1
 
 data:
-  train_files: "/user/luzhenyan/data/segmented_docs/train.parquet"
-  val_files: "/user/luzhenyan/data/segmented_docs/val.parquet"
+  train_files: "/user/wangyicheng/data/segmented_docs/train.parquet"
+  val_files: "/user/wangyicheng/data/segmented_docs/val.parquet"
   train_batch_size: 16
   max_prompt_length: 2048
   max_response_length: 1024
@@ -360,7 +360,7 @@ segmented_reading:
 # run_segmented_reading.sh
 
 PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
- hydra.run.dir=/user/luzhenyan \
+ hydra.run.dir=/user/wangyicheng \
  data.train_files=$HOME/data/segmented_docs/train.parquet \
  data.val_files=$HOME/data/segmented_docs/val.parquet \
  data.train_batch_size=16 \
@@ -384,7 +384,7 @@ PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
  trainer.save_freq=10 \
  trainer.test_freq=5 \
  trainer.total_epochs=100 \
- trainer.default_local_dir=/user/luzhenyan/checkpoints 2>&1 | tee /user/luzhenyan/segmented_reading.log
+ trainer.default_local_dir=/user/wangyicheng/checkpoints 2>&1 | tee /user/wangyicheng/segmented_reading.log
 ```
 
 ## 7. 预期效果

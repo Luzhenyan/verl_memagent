@@ -13,7 +13,7 @@ By leveraging a remote code sandbox service with greater CPU resources for concu
 Step 1: Prepare the Dataset
 ---------------------------
 
-We use the Eurus-2-RL-Data dataset for training. This dataset combines math and code questions, making it suitable for LLM training tasks. You can download it from HuggingFace: `Eurus-2-RL-Data Dataset <https://huggingface.co/datasets/PRIME-RL/Eurus-2-RL-Data>`_.
+We use the Eurus-2-RL-Data dataset for training. This dataset combines math and code questions, making it suitable for LLM training tasks. You can download it from HuggingFace: `Eurus-2-RL-Data Dataset <https://hf-mirror.com/datasets/PRIME-RL/Eurus-2-RL-Data>`_.
 
 Step 2: Set Up the Sandbox Fusion Service
 -----------------------------------------

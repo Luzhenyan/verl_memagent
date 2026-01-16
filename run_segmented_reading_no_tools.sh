@@ -22,7 +22,7 @@ export CUDA_LAUNCH_BLOCKING=1
 python3 -m verl.trainer.main_ppo \
     --config-path="$CONFIG_PATH" \
     --config-name='gsm8k_multiturn_grpo' \
-    hydra.run.dir=/user/luzhenyan/outputs \
+    hydra.run.dir=/user/wangyicheng/outputs \
     algorithm.adv_estimator=grpo \
     data.train_batch_size=2 \
     data.max_prompt_length=1024 \
@@ -30,7 +30,7 @@ python3 -m verl.trainer.main_ppo \
     data.filter_overlong_prompts=True \
     data.truncation='error' \
     data.return_raw_chat=True \
-    actor_rollout_ref.model.path=/home/luzhenyan/models/Qwen2.5-0.5B-Instruct/snapshots/7ae557604adf67be50417f59c2c2f167def9a775 \
+    actor_rollout_ref.model.path=/var/wangyicheng/models/Qwen2.5-0.5B-Instruct/snapshots/7ae557604adf67be50417f59c2c2f167def9a775 \
     actor_rollout_ref.actor.optim.lr=1e-5 \
     actor_rollout_ref.model.use_remove_padding=True \
     actor_rollout_ref.actor.ppo_mini_batch_size=2 \
@@ -61,6 +61,6 @@ python3 -m verl.trainer.main_ppo \
     trainer.save_freq=-1 \
     trainer.test_freq=1 \
     trainer.total_training_steps=5 \
-    data.train_files=/home/luzhenyan/data/triviaqa_docs/train_small.parquet \
-    data.val_files=/home/luzhenyan/data/triviaqa_docs/train_small.parquet \
+    data.train_files=/home/wangyicheng/data/triviaqa_docs/train_small.parquet \
+    data.val_files=/home/wangyicheng/data/triviaqa_docs/train_small.parquet \
     trainer.total_epochs=1 $@

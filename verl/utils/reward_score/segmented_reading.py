@@ -152,12 +152,28 @@ def _normalize_answer(answer: str) -> str:
 
 
 def _extract_final_answer(solution_str: str, method: str = "flexible") -> str:
-    """从解决方案中提取最终答案"""
+    """从解决方案中提取最终答案，支持多种格式包括boxed格式"""
     # 优化：只检查最后的字符，提高性能
     if len(solution_str) > _SOLUTION_CLIP_CHARS:
         solution_str = solution_str[-_SOLUTION_CLIP_CHARS:]
     
-    # 首先尝试查找标准答案标签（类似于search_r1_like_qa_em）
+    # 1. 首先尝试查找boxed格式的答案（优先级最高）
+    boxed_patterns = [
+        r"\\boxed\{([^}]+)\}",  # \boxed{answer}
+        r"\\boxed\{([^}]*)\}",  # \boxed{} 空boxed
+        r"\\boxed\s*\{([^}]*)\}",  # \boxed {answer} 带空格
+        r"\\boxed\s*\{([^}]*)\s*\}",  # \boxed { answer } 带空格
+    ]
+    
+    for pattern in boxed_patterns:
+        matches = re.findall(pattern, solution_str, re.IGNORECASE | re.DOTALL)
+        if matches:
+            # 取最后一个匹配的答案
+            answer = matches[-1].strip()
+            if answer:
+                return _clean_answer(answer)
+    
+    # 2. 查找标准答案标签
     answer_tag_patterns = [
         r"<answer>\s*(.*?)\s*</answer>",
         r"<ANSWER>\s*(.*?)\s*</ANSWER>",
@@ -171,7 +187,7 @@ def _extract_final_answer(solution_str: str, method: str = "flexible") -> str:
             if answer:
                 return _clean_answer(answer)
     
-    # 查找明确的答案标记模式
+    # 3. 查找明确的答案标记模式
     explicit_patterns = [
         r"最终答案[：:]\s*(.+)",
         r"答案是[：:]\s*(.+)", 
@@ -195,7 +211,7 @@ def _extract_final_answer(solution_str: str, method: str = "flexible") -> str:
     if method == "strict":
         return ""
     
-    # flexible模式：尝试从最后几行提取答案
+    # 4. flexible模式：尝试从最后几行提取答案
     lines = solution_str.strip().split('\n')
     for line in reversed(lines[-5:]):  # 检查最后5行
         line = line.strip()

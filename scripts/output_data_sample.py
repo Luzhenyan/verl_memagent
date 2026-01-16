@@ -8,7 +8,7 @@ import json
 
 def main():
     # 读取数据
-    df = pd.read_parquet('/home/luzhenyan/data/triviaqa_docs/train_small.parquet')
+    df = pd.read_parquet('/home/wangyicheng/data/triviaqa_docs/train_small.parquet')
     
     # 获取第一个样本
     sample = df.iloc[0]
@@ -32,7 +32,7 @@ def main():
         })
     
     # 写入文件
-    with open('/home/luzhenyan/verl/datasample.txt', 'w', encoding='utf-8') as f:
+    with open('/home/wangyicheng/verl/datasample.txt', 'w', encoding='utf-8') as f:
         f.write("=== TriviaQA Data Sample ===\n\n")
         f.write(f"Question: {output_data['question']}\n")
         f.write(f"Answer: {output_data['answer']}\n")
@@ -46,7 +46,7 @@ def main():
             f.write(f"Length: {segment['content_length']} characters\n")
             f.write(f"Content:\n{segment['content_full']}\n\n")
     
-    print("Data sample written to /home/luzhenyan/verl/datasample.txt")
+    print("Data sample written to /home/wangyicheng/verl/datasample.txt")
 
 if __name__ == "__main__":
     main()

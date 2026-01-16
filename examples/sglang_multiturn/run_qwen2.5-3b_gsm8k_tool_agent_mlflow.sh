@@ -13,7 +13,7 @@ export CUDA_VISIBLE_DEVICES=0,1
 python3 -m verl.trainer.main_ppo \
     --config-path="$CONFIG_PATH" \
     --config-name='gsm8k_multiturn_grpo' \
-    hydra.run.dir=/user/luzhenyan/outputs \
+    hydra.run.dir=/user/wangyicheng/outputs \
     algorithm.adv_estimator=grpo \
     data.train_batch_size=4 \
     data.max_prompt_length=1024 \
@@ -21,7 +21,7 @@ python3 -m verl.trainer.main_ppo \
     data.filter_overlong_prompts=True \
     data.truncation='error' \
     data.return_raw_chat=True \
-    actor_rollout_ref.model.path=/home/luzhenyan/models/Qwen2.5-7B-Instruct \
+    actor_rollout_ref.model.path=/var/wangyicheng/models/Qwen2.5-7B-Instruct \
     actor_rollout_ref.actor.optim.lr=1e-6 \
     actor_rollout_ref.model.use_remove_padding=True \
     actor_rollout_ref.actor.ppo_mini_batch_size=4 \
@@ -51,8 +51,8 @@ python3 -m verl.trainer.main_ppo \
     trainer.save_freq=-1 \
     trainer.test_freq=1 \
     trainer.total_training_steps=10 \
-    data.train_files=/home/luzhenyan/data/gsm8k/train.parquet \
-    data.val_files=/home/luzhenyan/data/gsm8k/test.parquet \
+    data.train_files=/home/wangyicheng/data/gsm8k/train.parquet \
+    data.val_files=/home/wangyicheng/data/gsm8k/test.parquet \
     actor_rollout_ref.rollout.multi_turn.tool_config_path="$PROJECT_DIR/examples/sglang_multiturn/config/tool_config/gsm8k_tool_config.yaml" \
     trainer.total_epochs=15 $@
 

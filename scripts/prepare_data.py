@@ -61,8 +61,8 @@ def main():
     logger.info("开始准备HotpotQA训练数据")
     
     # 输入和输出路径
-    input_path = "/home/luzhenyan/datasets/hotpot_dev_distractor_v1.json"
-    output_dir = "/home/luzhenyan/data/segmented_docs"
+    input_path = "/home/wangyicheng/datasets/hotpot_dev_distractor_v1.json"
+    output_dir = "/home/wangyicheng/data/segmented_docs"
     
     # 创建输出目录
     Path(output_dir).mkdir(parents=True, exist_ok=True)

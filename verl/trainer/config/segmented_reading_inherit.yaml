@@ -11,8 +11,8 @@ defaults:
 
 # 数据配置
 data:
-  train_files: "/home/luzhenyan/data/triviaqa_docs/train_small.parquet"
-  val_files: "/home/luzhenyan/data/triviaqa_docs/val.parquet"
+  train_files: "/home/wangyicheng/data/triviaqa_docs/train_small.parquet"
+  val_files: "/home/wangyicheng/data/triviaqa_docs/val.parquet"
   train_batch_size: 2
   max_prompt_length: 2048
   max_response_length: 512
@@ -22,7 +22,7 @@ data:
 actor_rollout_ref:
   hybrid_engine: True
   model:
-    path: "/home/luzhenyan/models/Qwen2.5-0.5B-Instruct/snapshots/7ae557604adf67be50417f59c2c2f167def9a775"
+    path: "/var/wangyicheng/models/Qwen2.5-0.5B-Instruct/snapshots/7ae557604adf67be50417f59c2c2f167def9a775"
     # 启用共享内存优化大模型加载
     use_shm: True
     # 启用内存优化
@@ -50,7 +50,7 @@ actor_rollout_ref:
 # Critic配置
 critic:
   model:
-    path: "/home/luzhenyan/models/Qwen2.5-0.5B-Instruct/snapshots/7ae557604adf67be50417f59c2c2f167def9a775"
+    path: "/var/wangyicheng/models/Qwen2.5-0.5B-Instruct/snapshots/7ae557604adf67be50417f59c2c2f167def9a775"
     # 启用共享内存优化大模型加载
     use_shm: True
     # 启用内存优化
@@ -79,7 +79,7 @@ trainer:
   nnodes: 1
   logger: console  # 使用console logger，关闭wandb
   # Checkpoint保存路径
-  default_local_dir: "/user/luzhenyan/checkpoints/segmented_reading"
+  default_local_dir: "/user/wangyicheng/checkpoints/segmented_reading"
   # 项目名称和实验名称
   project_name: "segmented_reading"
   experiment_name: "triviaqa_training"

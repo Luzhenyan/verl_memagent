@@ -16,7 +16,8 @@ from .agent_loop import AgentLoopBase, AgentLoopManager
 from .single_turn_agent_loop import SingleTurnAgentLoop
 from .tool_agent_loop import ToolAgentLoop
 from .segmented_reading_agent_loop import SegmentedReadingAgentLoop
+from .streaming_chunk_agent_loop import StreamingChunkAgentLoop
 
-_ = [SingleTurnAgentLoop, ToolAgentLoop, SegmentedReadingAgentLoop]
+_ = [SingleTurnAgentLoop, ToolAgentLoop, SegmentedReadingAgentLoop, StreamingChunkAgentLoop]
 
-__all__ = ["AgentLoopBase", "AgentLoopManager", "SegmentedReadingAgentLoop"]
+__all__ = ["AgentLoopBase", "AgentLoopManager", "SegmentedReadingAgentLoop", "StreamingChunkAgentLoop"]

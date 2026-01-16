@@ -13,9 +13,9 @@ export HYDRA_FULL_ERROR=1
 python3 -m verl.trainer.main_ppo \
   --config-path=verl/verl/trainer/config \
   --config-name=segmented_reading \
-  hydra.run.dir=/user/luzhenyan \
-  data.train_files=/user/luzhenyan/data/segmented_docs/train.parquet \
-  data.val_files=/user/luzhenyan/data/segmented_docs/val.parquet \
+  hydra.run.dir=/user/wangyicheng \
+  data.train_files=/user/wangyicheng/data/segmented_docs/train.parquet \
+  data.val_files=/user/wangyicheng/data/segmented_docs/val.parquet \
   data.train_batch_size=16 \
   data.max_prompt_length=2048 \
   data.max_response_length=1024 \
@@ -37,5 +37,5 @@ python3 -m verl.trainer.main_ppo \
   trainer.save_freq=10 \
   trainer.test_freq=5 \
   trainer.total_epochs=50 \
-  trainer.default_local_dir=/user/luzhenyan/checkpoints \
-  2>&1 | tee /user/luzhenyan/segmented_reading.log
+  trainer.default_local_dir=/user/wangyicheng/checkpoints \
+  2>&1 | tee /user/wangyicheng/segmented_reading.log

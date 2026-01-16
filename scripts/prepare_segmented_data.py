@@ -14,7 +14,7 @@ def create_sample_data():
     # Sample documents and questions
     sample_data = [
         {
-            "file_path": "/user/luzhenyan/data/segmented_docs/doc1.txt",
+            "file_path": "/user/wangyicheng/data/segmented_docs/doc1.txt",
             "question": "人工智能的发展历程是怎样的？",
             "segments": [
                 "人工智能的概念最早由艾伦·图灵在1950年提出。他提出了著名的图灵测试，用于判断机器是否具有智能。",
@@ -34,7 +34,7 @@ def create_sample_data():
             "difficulty": "medium"
         },
         {
-            "file_path": "/user/luzhenyan/data/segmented_docs/doc2.txt",
+            "file_path": "/user/wangyicheng/data/segmented_docs/doc2.txt",
             "question": "机器学习的主要类型有哪些？",
             "segments": [
                 "机器学习主要分为监督学习、无监督学习和强化学习三大类。",
@@ -54,7 +54,7 @@ def create_sample_data():
             "difficulty": "easy"
         },
         {
-            "file_path": "/user/luzhenyan/data/segmented_docs/doc3.txt",
+            "file_path": "/user/wangyicheng/data/segmented_docs/doc3.txt",
             "question": "深度学习在哪些领域取得了突破？",
             "segments": [
                 "深度学习在计算机视觉领域取得了显著突破。卷积神经网络在图像分类、目标检测、图像分割等任务上表现优异。",
@@ -110,7 +110,7 @@ def main():
     sample_data = create_sample_data()
     
     # Create document files
-    data_dir = "/user/luzhenyan/data/segmented_docs"
+    data_dir = "/user/wangyicheng/data/segmented_docs"
     create_document_files(data_dir, sample_data)
     
     # Save training data

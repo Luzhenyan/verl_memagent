@@ -9,7 +9,7 @@ Post-train a LLM using GSM8K dataset.
 Introduction
 ------------
 
-.. _hf_dataset_gsm8k: https://huggingface.co/datasets/gsm8k
+.. _hf_dataset_gsm8k: https://hf-mirror.com/datasets/gsm8k
 
 In this example, we train an LLM to tackle the `GSM8k <hf_dataset_gsm8k>`_ task with function-based rewards. [1]_
 
@@ -78,7 +78,7 @@ Now let's run PPO training with the dataset and model above. [2]_
 
 
 Set the ``data.train_files`` ,\ ``data.val_files``, ``actor_rollout_ref.model.path`` and ``critic.model.path`` based on your dataset and model names or paths.
-You may set ``VERL_USE_MODELSCOPE=True`` to download models from `modelscope <https://www.modelscope.cn>`_ instead of `huggingface <https://huggingface.co>`_.
+You may set ``VERL_USE_MODELSCOPE=True`` to download models from `modelscope <https://www.modelscope.cn>`_ instead of `huggingface <https://hf-mirror.com>`_.
 
 .. code-block:: bash
 

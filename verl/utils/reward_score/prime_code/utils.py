@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Borrowed from: https://huggingface.co/spaces/codeparrot/apps_metric/blob/main/utils.py
+# Borrowed from: https://hf-mirror.com/spaces/codeparrot/apps_metric/blob/main/utils.py
 
 import multiprocessing
 import os

@@ -164,7 +164,7 @@ class DocumentTools:
 trainer:
   project_name: "reading_writing_rl"
   experiment_name: "long_context_reader"
-  default_local_dir: "/user/luzhenyan/checkpoints"
+  default_local_dir: "/user/wangyicheng/checkpoints"
   
   # 训练参数
   total_epochs: 100
@@ -176,8 +176,8 @@ trainer:
   nnodes: 1
 
 data:
-  train_files: "/user/luzhenyan/data/long_context/train.parquet"
-  val_files: "/user/luzhenyan/data/long_context/val.parquet"
+  train_files: "/user/wangyicheng/data/long_context/train.parquet"
+  val_files: "/user/wangyicheng/data/long_context/val.parquet"
   train_batch_size: 32
   max_prompt_length: 2048
   max_response_length: 1024

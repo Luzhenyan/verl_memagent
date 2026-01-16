@@ -1,6 +1,6 @@
 # Char Count
 ## Introduction
-Char count is a simple NLP task. We create it for beginners to grasp the idea of RLVR. The task can be trained using a tiny model (e.g., https://huggingface.co/HuggingFaceTB/SmolLM2-135M) on a consumer GPU with only 8GB.
+Char count is a simple NLP task. We create it for beginners to grasp the idea of RLVR. The task can be trained using a tiny model (e.g., https://hf-mirror.com/HuggingFaceTB/SmolLM2-135M) on a consumer GPU with only 8GB.
 
 ## Problem formulation
 The prompt is: "How many {char} are there in {word}?". In order for LLM to better answer this question, we create SFT dataset with intermediate steps. For example,

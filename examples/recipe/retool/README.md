@@ -2,10 +2,10 @@
 [ReTool: Reinforcement Learning for Strategic Tool Use in LLMs](https://arxiv.org/abs/2504.11536)
 
 ## Overview
-- Base model: [Qwen/Qwen2.5-32B-Instruct](https://huggingface.co/Qwen/Qwen2.5-32B-Instruct)
-- SFT dataset: [JoeYing/ReTool-SFT](https://huggingface.co/datasets/JoeYing/ReTool-SFT)
-- RL dataset: [BytedTsinghua-SIA/DAPO-Math-17k](https://huggingface.co/datasets/BytedTsinghua-SIA/DAPO-Math-17k)
-- Val dataset: [yentinglin/aime_2025](https://huggingface.co/datasets/yentinglin/aime_2025)
+- Base model: [Qwen/Qwen2.5-32B-Instruct](https://hf-mirror.com/Qwen/Qwen2.5-32B-Instruct)
+- SFT dataset: [JoeYing/ReTool-SFT](https://hf-mirror.com/datasets/JoeYing/ReTool-SFT)
+- RL dataset: [BytedTsinghua-SIA/DAPO-Math-17k](https://hf-mirror.com/datasets/BytedTsinghua-SIA/DAPO-Math-17k)
+- Val dataset: [yentinglin/aime_2025](https://hf-mirror.com/datasets/yentinglin/aime_2025)
 
 ## SFT
 1. Data preparation

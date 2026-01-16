@@ -11,14 +11,14 @@ def fix_data_paths():
     """修复数据文件中的路径"""
     
     # 训练数据
-    train_file = "/home/luzhenyan/data/triviaqa_docs/train_small.parquet"
+    train_file = "/home/wangyicheng/data/triviaqa_docs/train_small.parquet"
     if os.path.exists(train_file):
         print(f"修复训练数据: {train_file}")
         df_train = pd.read_parquet(train_file)
         
         # 更新document_file路径
         df_train['document_file'] = df_train['document_file'].apply(
-            lambda x: x.replace('data/triviaqa_docs/', '/home/luzhenyan/data/triviaqa_docs/')
+            lambda x: x.replace('data/triviaqa_docs/', '/home/wangyicheng/data/triviaqa_docs/')
         )
         
         # 保存修复后的数据
@@ -27,14 +27,14 @@ def fix_data_paths():
         print(f"第一行document_file: {df_train['document_file'].iloc[0]}")
     
     # 验证数据
-    val_file = "/home/luzhenyan/data/triviaqa_docs/val.parquet"
+    val_file = "/home/wangyicheng/data/triviaqa_docs/val.parquet"
     if os.path.exists(val_file):
         print(f"\n修复验证数据: {val_file}")
         df_val = pd.read_parquet(val_file)
         
         # 更新document_file路径
         df_val['document_file'] = df_val['document_file'].apply(
-            lambda x: x.replace('data/triviaqa_docs/', '/home/luzhenyan/data/triviaqa_docs/')
+            lambda x: x.replace('data/triviaqa_docs/', '/home/wangyicheng/data/triviaqa_docs/')
         )
         
         # 保存修复后的数据

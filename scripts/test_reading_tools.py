@@ -48,7 +48,7 @@ async def test_read_document_tool():
     
     # Test reading segment
     parameters = {
-        "file_path": "/user/luzhenyan/data/segmented_docs/doc1.txt",
+        "file_path": "/user/wangyicheng/data/segmented_docs/doc1.txt",
         "segment_index": 0
     }
     

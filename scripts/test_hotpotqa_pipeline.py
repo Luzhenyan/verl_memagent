@@ -419,7 +419,7 @@ async def main():
     logger.info("开始使用HotpotQA数据测试分段阅读pipeline")
     
     # 加载HotpotQA数据
-    data_file = "/home/luzhenyan/datasets/hotpot_dev_distractor_v1.json"
+    data_file = "/home/wangyicheng/datasets/hotpot_dev_distractor_v1.json"
     samples = load_hotpotqa_data(data_file, max_samples=3)
     
     results = []

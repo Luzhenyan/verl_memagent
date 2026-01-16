@@ -132,7 +132,7 @@ def main():
     logger.info("开始准备TriviaQA训练数据")
     
     # 输出路径
-    output_dir = Path("/home/luzhenyan/data/triviaqa_docs")
+    output_dir = Path("/home/wangyicheng/data/triviaqa_docs")
     output_dir.mkdir(parents=True, exist_ok=True)
     
     try:

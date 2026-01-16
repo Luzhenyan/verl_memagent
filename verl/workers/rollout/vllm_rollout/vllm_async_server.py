@@ -14,6 +14,7 @@
 import logging
 import os
 import pickle
+import time
 from typing import Any, Callable, Optional
 
 import numpy as np
@@ -41,6 +42,10 @@ from verl.utils.fs import copy_to_local
 from verl.workers.rollout.async_server import AsyncServerBase, TokenOutput
 
 logger = logging.getLogger(__file__)
+
+def _dbg(msg: str):
+    if os.getenv("VERL_VLLM_ASYNC_DEBUG", "0") in ("1", "true", "True"):
+        logger.warning(f"[VLLM_ASYNC_SERVER][pid={os.getpid()}] {msg}")
 
 
 def _get_model_runner_workers(vllm_config, init_ray: bool = True):
@@ -218,6 +223,7 @@ class AsyncvLLMServer(AsyncServerBase):
             print(f"[DEBUG] vllm_async_server init - config.multi_turn.format: {getattr(config.multi_turn, 'format', 'N/A')}")
         else:
             print("[DEBUG] vllm_async_server init - config.multi_turn not found")
+        _dbg(f"constructed server vllm_dp_rank={self.vllm_dp_rank}/{self.vllm_dp_size} wg_prefix={self.wg_prefix}")
 
         # _config = OmegaConf.to_container(config, resolve=True, throw_on_missing=True)
         # logger.info(f"Init async LLM server with config: {_config}")
@@ -226,10 +232,14 @@ class AsyncvLLMServer(AsyncServerBase):
 
     async def init_engine(self):
         """Init vLLM AsyncLLM engine."""
+        t0 = time.perf_counter()
+        _dbg("ENTER init_engine()")
         config = self.config
         model_path = config.model.path
         model_name = "/".join(model_path.split("/")[-2:])
+        _dbg(f"copy_to_local start model_path={model_path}")
         local_path = copy_to_local(model_path)
+        _dbg(f"copy_to_local done local_path={local_path} elapsed_s={time.perf_counter()-t0:.3f}")
         trust_remote_code = config.model.get("trust_remote_code", False)
         config = config.rollout
 
@@ -277,6 +287,8 @@ class AsyncvLLMServer(AsyncServerBase):
         if config.get("limit_images", None):  # support for multi-image data
             engine_kwargs["limit_mm_per_prompt"] = {"image": config.get("limit_images")}
 
+        enable_prefix_caching = engine_kwargs.pop("enable_prefix_caching", True)
+        t_args0 = time.perf_counter()
         engine_args = AsyncEngineArgs(
             model=local_path,
             enable_sleep_mode=config.free_cache_engine,
@@ -294,18 +306,34 @@ class AsyncvLLMServer(AsyncServerBase):
             disable_log_stats=config.disable_log_stats,
             max_num_batched_tokens=max_num_batched_tokens,
             enable_chunked_prefill=config.enable_chunked_prefill,
-            enable_prefix_caching=True,
+            enable_prefix_caching=enable_prefix_caching,
             trust_remote_code=trust_remote_code,
             seed=config.get("seed", 0),
             **compilation_config,
             **engine_kwargs,
         )
+        _dbg(
+            "built AsyncEngineArgs "
+            f"tp={tensor_parallel_size} dtype={config.dtype} gpu_mem_util={config.gpu_memory_utilization} "
+            f"max_model_len={self.max_model_len} max_num_seqs={config.max_num_seqs} "
+            f"elapsed_s={time.perf_counter()-t_args0:.3f}"
+        )
 
         # init async llm engine
+        t_cfg0 = time.perf_counter()
+        _dbg("create_engine_config start")
         vllm_config = self._create_engine_config(engine_args)
+        _dbg(
+            f"create_engine_config done instance_id={getattr(vllm_config,'instance_id',None)} "
+            f"elapsed_s={time.perf_counter()-t_cfg0:.3f}"
+        )
+        t_llm0 = time.perf_counter()
+        _dbg("AsyncLLM.from_vllm_config start")
         self.engine = AsyncLLM.from_vllm_config(vllm_config)
+        _dbg(f"AsyncLLM.from_vllm_config done elapsed_s={time.perf_counter()-t_llm0:.3f}")
 
         # build serving chat
+        t_chat0 = time.perf_counter()
         model_config = self.engine.model_config
         BASE_MODEL_PATHS = [BaseModelPath(name=model_name, model_path=model_path)]
         models = OpenAIServingModels(self.engine, model_config, BASE_MODEL_PATHS)
@@ -320,9 +348,11 @@ class AsyncvLLMServer(AsyncServerBase):
             enable_auto_tools=config.multi_turn.tool_config_path is not None,
             tool_parser=config.multi_turn.format,  # hermes, llama3_json, ...
         )
+        _dbg(f"OpenAIServingChat ready elapsed_s={time.perf_counter()-t_chat0:.3f}")
 
         # used for Qwen2.5-VL
         self.processor = hf_processor(local_path, trust_remote_code=trust_remote_code, use_fast=True)
+        _dbg(f"EXIT init_engine() total_elapsed_s={time.perf_counter()-t0:.3f}")
 
     def _create_engine_config(self, engine_args: AsyncEngineArgs):
         vllm_config = engine_args.create_engine_config()
@@ -362,7 +392,31 @@ class AsyncvLLMServer(AsyncServerBase):
         request_id: str,
         image_data: Optional[list[Any]] = None,
     ) -> TokenOutput:
-        max_tokens = self.max_model_len - len(prompt_ids)
+        prompt_len = len(prompt_ids)
+        max_tokens = self.max_model_len - prompt_len
+
+        # Allow caller to further cap per-call generation length.
+        # NOTE: vLLM uses `max_tokens`; some upstream code may use `max_new_tokens` convention.
+        caller_max_tokens = None
+        if sampling_params:
+            caller_max_tokens = sampling_params.pop("max_tokens", None)
+            if caller_max_tokens is None:
+                caller_max_tokens = sampling_params.pop("max_new_tokens", None)
+        if caller_max_tokens is not None:
+            try:
+                caller_max_tokens = int(caller_max_tokens)
+            except Exception:
+                caller_max_tokens = None
+
+        if caller_max_tokens is not None:
+            max_tokens = min(max_tokens, caller_max_tokens)
+
+        if max_tokens < 1:
+            logger.warning(
+                f"[vllm_async_server.generate] max_tokens<1: "
+                f"max_tokens={max_tokens} prompt_len={prompt_len} max_model_len={self.max_model_len} "
+                f"caller_max_tokens={caller_max_tokens} request_id={request_id}"
+            )
         sampling_params["logprobs"] = 0 if sampling_params.pop("logprobs", False) else None
         sampling_params = SamplingParams(max_tokens=max_tokens, **sampling_params)
         prompt_ids = _qwen2_5_vl_dedup_image_tokens(prompt_ids, self.processor)

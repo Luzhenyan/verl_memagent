@@ -34,7 +34,7 @@ train_prompt_mini_bsz=32  # mini_bsz * n >= micro_bsz * pp * dp
 
 NNODES=${NNODES:-64}
 
-# 1. download the dist_ckpt format model from https://huggingface.co/BearBiscuit05/dpsk-v3-671B-BF16-dist_ckpt/tree/main
+# 1. download the dist_ckpt format model from https://hf-mirror.com/BearBiscuit05/dpsk-v3-671B-BF16-dist_ckpt/tree/main
 # change the MODEL_PATH and MCORE_MODEL_PATH to your own path
 # Paths
 MODEL_PATH="<path_to_dsv3_config>"

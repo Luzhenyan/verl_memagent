@@ -30,7 +30,7 @@ Last updated: 06/27/2025.
 
 ## 🎉News
 
-- **[2025/05/29]** 🎉 Ranked **#1** of the day on [Huggingface Daily Papers](https://huggingface.co/papers?date=2025-05-29).
+- **[2025/05/29]** 🎉 Ranked **#1** of the day on [Huggingface Daily Papers](https://hf-mirror.com/papers?date=2025-05-29).
 - **[2025/05/29]** Released our Paper on arXiv. See [here](https://arxiv.org/pdf/2505.22617). We provide insights into the entropy mechanism of RL for LLMs and propose two simple yet effective strategies to alleviate the entropy collapse. 
 
 
@@ -103,7 +103,7 @@ If you find this paper or repo helpful, please cite us.
 }
 ```
 ## 🌻Acknowledgement
-We implement our reinforcement learning algorithm extending from [verl](https://github.com/volcengine/verl). We utilize [vLLM](https://github.com/vllm-project/vllm) for inference. Our models are trained primarily on [Qwen2.5 family](https://github.com/QwenLM/Qwen2.5). Our training data is built from [DAPO-MATH](https://huggingface.co/datasets/BytedTsinghua-SIA/DAPO-Math-17k). Thanks for their great contributions!
+We implement our reinforcement learning algorithm extending from [verl](https://github.com/volcengine/verl). We utilize [vLLM](https://github.com/vllm-project/vllm) for inference. Our models are trained primarily on [Qwen2.5 family](https://github.com/QwenLM/Qwen2.5). Our training data is built from [DAPO-MATH](https://hf-mirror.com/datasets/BytedTsinghua-SIA/DAPO-Math-17k). Thanks for their great contributions!
 
 ## 📬 Contact
 

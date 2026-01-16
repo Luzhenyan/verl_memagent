@@ -77,7 +77,7 @@ def segment_document(context, max_length=2048):
 def save_document_file(sample, segments, output_dir, doc_index):
     """保存文档到JSON文件并创建对应的summary文件"""
     doc_file_path = output_dir / f"document_{doc_index}.json"
-    summary_file_path = Path("/user/luzhenyan") / f"document_{doc_index}_summary.txt"
+    summary_file_path = Path("/user/wangyicheng") / f"document_{doc_index}_summary.txt"
     
     # 确保summary目录存在
     summary_file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -110,7 +110,7 @@ def create_verl_sample(sample, doc_file_path, segments, split="train"):
         "prompt": [
             {
                 "role": "user", 
-                "content": f"Please read the document and answer the question: {sample['question']}\n\nDocument information:\n- Document file: {doc_file_path}\n- Total segments: {len(segments)}\n- Summary file: /user/luzhenyan/{Path(doc_file_path).stem}_summary.txt\n\nInstructions:\n1. Use read_segment_file to read specific segments from the document\n2. After each reading, use write_summary_file to save your progress to the summary file\n3. Use read_summary_file to check your previous progress if needed\n\nPlease start reading the document segment by segment."
+                "content": f"Please read the document and answer the question: {sample['question']}\n\nDocument information:\n- Document file: {doc_file_path}\n- Total segments: {len(segments)}\n- Summary file: /user/wangyicheng/{Path(doc_file_path).stem}_summary.txt\n\nInstructions:\n1. Use read_segment_file to read specific segments from the document\n2. After each reading, use write_summary_file to save your progress to the summary file\n3. Use read_summary_file to check your previous progress if needed\n\nPlease start reading the document segment by segment."
             }
         ],
         
@@ -187,7 +187,7 @@ def main():
     logger.info("开始准备完整的TriviaQA训练数据")
     
     # 输出路径
-    output_dir = Path("/home/luzhenyan/data/triviaqa_docs")
+    output_dir = Path("/home/wangyicheng/data/triviaqa_docs")
     output_dir.mkdir(parents=True, exist_ok=True)
     
     try:
@@ -241,7 +241,7 @@ def main():
         
         # 8. 验证文件创建
         logger.info("验证summary文件创建:")
-        summary_files = list(Path("/user/luzhenyan").glob("document_*_summary.txt"))
+        summary_files = list(Path("/user/wangyicheng").glob("document_*_summary.txt"))
         logger.info(f"创建的summary文件数量: {len(summary_files)}")
         
         logger.info("数据预处理完成！")
