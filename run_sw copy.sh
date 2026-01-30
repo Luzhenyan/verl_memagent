@@ -74,12 +74,21 @@ MODEL_PATH="${MODEL_PATH:-/var/wangyicheng/models/Qwen3-8B}"
 export N_GPUS_PER_NODE="${N_GPUS_PER_NODE:-8}"
 echo "[run_sw] Using N_GPUS_PER_NODE=$N_GPUS_PER_NODE"
 
+# 多机：
+# - NNODES: 训练使用的节点数（需先起 Ray 集群，见 examples/slurm/ray_on_slurm.slurm）
+# - RAY_INIT_ADDR: 传给 ray.init 的 address（例如 "auto" 或 "10.0.0.1:6379"）
+NNODES="${NNODES:-1}"
+RAY_INIT_ADDR="${RAY_INIT_ADDR:-}"
+echo "[run_sw] Using NNODES=$NNODES"
+if [[ -n "$RAY_INIT_ADDR" ]]; then
+  echo "[run_sw] Using RAY_INIT_ADDR=$RAY_INIT_ADDR"
+fi
 # 训练参数（先给一个可跑的默认；可通过环境变量覆盖）
 TRAIN_BATCH_SIZE="${TRAIN_BATCH_SIZE:-4}"
 MAX_PROMPT_LEN="${MAX_PROMPT_LEN:-2000}"     # prompt 只有 question；长文在 context 字段里由 agent loop 手动切块
 MAX_RESP_LEN="${MAX_RESP_LEN:-38960}"        # 恢复较大的响应长度
 MAX_MODEL_LEN="${MAX_MODEL_LEN:-40960}"       # 恢复较大的上下文长度
-TOTAL_STEPS="${TOTAL_STEPS:-1000}"
+TOTAL_STEPS="${TOTAL_STEPS:-500}"
 TOTAL_EPOCHS="${TOTAL_EPOCHS:-3}"
 GPU_MEM_UTIL="${GPU_MEM_UTIL:-0.8}"
 ROLLOUT_N="${ROLLOUT_N:-4}"
@@ -157,7 +166,7 @@ $PYTHON_BIN -m verl.trainer.main_ppo \
   trainer.experiment_name="$EXP_NAME" \
   trainer.default_local_dir="${CKPT_DIR}/${PROJECT_NAME}/${EXP_NAME}" \
   trainer.n_gpus_per_node="$N_GPUS_PER_NODE" \
-  trainer.nnodes=1 \
+  trainer.nnodes="$NNODES" \
   trainer.device=cuda \
   trainer.val_before_train=False \
   trainer.save_freq=50 \
@@ -167,6 +176,7 @@ $PYTHON_BIN -m verl.trainer.main_ppo \
   data.val_files="$VAL_FILE" \
   data.val_batch_size=1 \
   trainer.total_epochs="$TOTAL_EPOCHS" \
+  ${RAY_INIT_ADDR:+ray_kwargs.ray_init.address="$RAY_INIT_ADDR"} \
   2>&1 | tee "$LOG_DIR/train_sw_$(date +%F_%H-%M-%S).log" $@
 
 

@@ -76,10 +76,8 @@ echo "[run_sw] Using N_GPUS_PER_NODE=$N_GPUS_PER_NODE"
 
 # 训练参数（先给一个可跑的默认；可通过环境变量覆盖）
 TRAIN_BATCH_SIZE="${TRAIN_BATCH_SIZE:-4}"
-MAX_PROMPT_LEN="${MAX_PROMPT_LEN:-2000}"     # prompt 只有 question；长文在 context 字段里由 agent loop 手动切块
-MAX_RESP_LEN="${MAX_RESP_LEN:-38960}"        # 恢复较大的响应长度
 MAX_MODEL_LEN="${MAX_MODEL_LEN:-40960}"       # 恢复较大的上下文长度
-TOTAL_STEPS="${TOTAL_STEPS:-1000}"
+TOTAL_STEPS="${TOTAL_STEPS:-1500}"
 TOTAL_EPOCHS="${TOTAL_EPOCHS:-3}"
 GPU_MEM_UTIL="${GPU_MEM_UTIL:-0.8}"
 ROLLOUT_N="${ROLLOUT_N:-4}"
@@ -95,7 +93,7 @@ while [[ $(( (TRAIN_BATCH_SIZE * ROLLOUT_N) % N_GPUS_PER_NODE )) != 0 ]]; do
 done
 echo "[run_sw] Adjusted TRAIN_BATCH_SIZE to $TRAIN_BATCH_SIZE for compatibility with $N_GPUS_PER_NODE GPUs (Total samples: $((TRAIN_BATCH_SIZE * ROLLOUT_N)))"
 
-TP="${TP:-8}"
+TP="${TP:-16}"
 
 
 LOG_DIR="${LOG_DIR:-$PROJECT_DIR/logs}"
@@ -109,14 +107,19 @@ EXP_NAME="${EXP_NAME:-qwen3-8b_hotpotqa_sw_grpo}"
 # 默认把 checkpoint 放到 /var（通常更大）；如需自定义可通过环境变量覆盖 CKPT_DIR。
 CKPT_DIR="${CKPT_DIR:-/var/luzhenyan/checkpoints}"
 
-$PYTHON_BIN -m verl.trainer.main_ppo \
+
+ray job submit --address="http://172.16.0.46:8265" \
+  --runtime-env=verl/trainer/runtime_env.yaml \
+  --no-wait \
+  -- \
+  $PYTHON_BIN -m verl.trainer.main_ppo \
   --config-path="$CONFIG_PATH" \
   --config-name='gsm8k_multiturn_grpo' \
   hydra.run.dir=/var/luzhenyan/outputs \
   algorithm.adv_estimator=grpo \
-  data.train_batch_size="$TRAIN_BATCH_SIZE" \
-  data.max_prompt_length="$MAX_PROMPT_LEN" \
-  data.max_response_length="$MAX_RESP_LEN" \
+  data.train_batch_size=4 \
+  data.max_prompt_length=2000 \
+  data.max_response_length=38960 \
   data.filter_overlong_prompts=True \
   data.truncation='error' \
   data.return_raw_chat=True \
@@ -156,11 +159,12 @@ $PYTHON_BIN -m verl.trainer.main_ppo \
   trainer.project_name="$PROJECT_NAME" \
   trainer.experiment_name="$EXP_NAME" \
   trainer.default_local_dir="${CKPT_DIR}/${PROJECT_NAME}/${EXP_NAME}" \
+  trainer.resume_mode=disable \
   trainer.n_gpus_per_node="$N_GPUS_PER_NODE" \
-  trainer.nnodes=1 \
+  trainer.nnodes=2 \
   trainer.device=cuda \
   trainer.val_before_train=False \
-  trainer.save_freq=50 \
+  trainer.save_freq=2 \
   trainer.test_freq=-1 \
   trainer.total_training_steps="$TOTAL_STEPS" \
   data.train_files="$TRAIN_FILE" \
