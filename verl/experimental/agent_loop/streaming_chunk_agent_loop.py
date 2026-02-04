@@ -27,42 +27,111 @@ def _dbg(msg: str):
         logger.warning(f"[SW_AGENT][pid={os.getpid()}] {msg}")
 
 
-TEMPLATE_FIRST = (
-    "You are presented with a problem and the first section of an article. "
-    "Please read and think about what information in this section might help answer the problem.\n\n"
-    "<problem>\n{prompt}\n</problem>\n\n"
-    "<section>\n{chunk}\n</section>\n\n"
-    "IMPORTANT: Only discuss information that is directly relevant to answering the problem. "
-    "Ignore unrelated content.\n\n"
-    "Please share your thoughts on what key information this section provides:"
-)
+TEMPLATE_FIRST = """You are presented with a problem and the first section of an article. Please read and extract ONLY information that is directly relevant to answering the problem.
 
-TEMPLATE_THINK = (
-    "Here is another section of the article. Please continue analyzing:\n\n"
-    "<section>\n{chunk}\n</section>\n\n"
-    "IMPORTANT: Only discuss information that is directly relevant to the problem. "
-    "If this section contains no relevant information, simply state that and move on. "
-    "Do NOT summarize unrelated content.\n\n"
-    "Please share your thoughts on what key information this section provides:"
-)
+<problem> 
+{prompt}
+</problem>
 
-TEMPLATE_SUMMARIZE = (
-    "Based on our discussion, please provide a concise summary that includes:\n\n"
-    "1. Restate the original problem/question first.\n"
-    "2. Summarize ALL key information gathered so far that is relevant to answering this problem.\n\n"
-    "CRITICAL RULES:\n"
-    "- The summary MUST start with the problem statement.\n"
-    "- Include all relevant information found so far, even if recent sections had none.\n"
-    "- ONLY include information that helps answer the problem.\n"
-    "- If recent sections had no relevant info, keep previous findings.\n\n"
-    "Summary:"
-)
+<section>
+{chunk}
+</section>
 
-TEMPLATE_FINAL = (
-    "Based on the following summary, please provide the final answer and put it in \\boxed{{}}.\n\n"
-    "<summary>\n{summary}\n</summary>\n\n"
-    "Your answer:"
-)
+IMPORTANT: Only discuss information that is directly relevant to answering the problem. Ignore unrelated content.
+Note: You will later be asked to provide a final answer, so extract all facts that could help (names, dates, places, etc.).
+
+In addition to extraction, you MAY decide to update a running summary when it is helpful.
+Meta: chunks_since_summary={chunks_since_summary}, summary_interval_hint={summary_interval_hint}, is_last_section={is_last_section}.
+
+Heuristic: if chunks_since_summary >= summary_interval_hint, OR if you already have enough information, OR if the context is getting long, then set should_summarize=true.
+Hard rule: if is_last_section=true, you MUST set should_summarize=true and provide a non-empty summary.
+
+Return ONLY the following tagged blocks (no markdown, no extra text):
+
+<NOTES>
+Key facts from this section (names, dates, numbers, direct answers):
+</NOTES>
+<SHOULD_SUMMARIZE>
+true|false
+</SHOULD_SUMMARIZE>
+<SUMMARY>
+...updated running summary (empty if SHOULD_SUMMARIZE=false)...
+</SUMMARY>
+
+Summary rules (when should_summarize=true):
+- MUST start by restating the original problem/question.
+- MUST list ALL specific facts found (names, dates, numbers, connections).
+- If facts answer the question, state: "Answer: [the answer]" or "Partial: [what's found]".
+- MUST NOT be empty.
+
+Output:
+"""
+
+TEMPLATE_THINK = """Here is another section of the article. Please continue extracting:
+
+<section>
+{chunk}
+</section>
+
+IMPORTANT: Only discuss information that is directly relevant to answering the problem we are working on. If this section contains no relevant information, simply state that and move on. Do NOT summarize unrelated content.
+
+You MAY decide to update a running summary when it is helpful.
+Meta: chunks_since_summary={chunks_since_summary}, summary_interval_hint={summary_interval_hint}, is_last_section={is_last_section}.
+
+Heuristic: if chunks_since_summary >= summary_interval_hint, OR if you already have enough information, OR if the context is getting long, then set should_summarize=true.
+Hard rule: if is_last_section=true, you MUST set should_summarize=true and provide a non-empty summary.
+
+Return ONLY the following tagged blocks (no markdown, no extra text):
+
+<NOTES>
+Key facts from this section (names, dates, numbers, direct answers):
+</NOTES>
+<SHOULD_SUMMARIZE>
+true|false
+</SHOULD_SUMMARIZE>
+<SUMMARY>
+...updated running summary (empty if SHOULD_SUMMARIZE=false)...
+</SUMMARY>
+
+Summary rules (when should_summarize=true):
+- MUST start by restating the original problem/question.
+- MUST list ALL specific facts found (names, dates, numbers, connections).
+- If facts answer the question, state: "Answer: [the answer]" or "Partial: [what's found]".
+- MUST NOT be empty.
+
+Output:
+"""
+
+TEMPLATE_SUMMARIZE = """Based on our discussion, provide a concise summary:
+
+REQUIRED FORMAT:
+Question: [restate the original problem]
+Findings: [list ALL specific facts found: names, dates, numbers, document references]
+Answer Status: [Complete/Partial/Not Found]
+
+RULES:
+- MUST start with "Question:" to restate the problem
+- MUST list all relevant facts found (even from earlier sections)
+- If you have enough to answer, state "Answer Status: Complete - [answer]"
+- Never output empty summary - always include the question and findings
+
+Summary:
+"""
+
+TEMPLATE_FINAL = """Based on the following summary, provide the final answer in \\boxed{{}}.
+
+<summary>
+{summary}
+</summary>
+
+INSTRUCTIONS:
+- If the summary contains facts that answer the question, extract and provide the answer in \\boxed{{answer}}
+- You may need to combine information from multiple documents - this is expected
+- Only return empty \\boxed{{}} if the summary explicitly states no relevant information was found
+- Be concise: only include the direct answer (e.g., a name, date, or number), not explanations
+
+Your answer:
+"""
 
 
 def _chunk_context(context: str, chunk_size: int) -> List[str]:
@@ -250,15 +319,37 @@ class StreamingChunkAgentLoop(AgentLoopBase):
 
         # --- 运行流程 ---
         # 1. 初始思考
-        await _do_turn(TEMPLATE_FIRST.format(prompt=question, chunk=chunks[0]), label=f"chunk 1/{total_chunks}")
+        chunks_since_summary = 0
+        is_last_section = (total_chunks == 1)
+        await _do_turn(
+            TEMPLATE_FIRST.format(
+                prompt=question,
+                chunk=chunks[0],
+                chunks_since_summary=chunks_since_summary,
+                summary_interval_hint=summary_interval,
+                is_last_section=is_last_section,
+            ),
+            label=f"chunk 1/{total_chunks}",
+        )
         current_summary = ""
 
         # 2. 循环分块
         for i, chunk in enumerate(chunks[1:], start=2):
-            await _do_turn(TEMPLATE_THINK.format(chunk=chunk), label=f"chunk {i}/{total_chunks}")
+            chunks_since_summary += 1
+            is_last_section = (i == total_chunks)
+            await _do_turn(
+                TEMPLATE_THINK.format(
+                    chunk=chunk,
+                    chunks_since_summary=chunks_since_summary,
+                    summary_interval_hint=summary_interval,
+                    is_last_section=is_last_section,
+                ),
+                label=f"chunk {i}/{total_chunks}",
+            )
             
             if summary_interval > 0 and i % summary_interval == 0 and i != total_chunks:
                 current_summary = await _do_turn(TEMPLATE_SUMMARIZE, label=f"inter-summary at {i}")
+                chunks_since_summary = 0
 
         # 3. 最终总结
         current_summary = await _do_turn(TEMPLATE_SUMMARIZE, label="final-summary")
@@ -269,7 +360,22 @@ class StreamingChunkAgentLoop(AgentLoopBase):
         reward_score = 1.0 if _is_correct(final_answer, gt_list) else 0.0
         _dbg(f"EXIT run() reward={reward_score} total_tokens={len(total_response_ids)}")
 
-        initial_prompt_ids = self.tokenizer.apply_chat_template([{"role": "user", "content": TEMPLATE_FIRST.format(prompt=question, chunk=chunks[0])}], tokenize=True, add_generation_prompt=True)
+        initial_prompt_ids = self.tokenizer.apply_chat_template(
+            [
+                {
+                    "role": "user",
+                    "content": TEMPLATE_FIRST.format(
+                        prompt=question,
+                        chunk=chunks[0],
+                        chunks_since_summary=0,
+                        summary_interval_hint=summary_interval,
+                        is_last_section=(total_chunks == 1),
+                    ),
+                }
+            ],
+            tokenize=True,
+            add_generation_prompt=True,
+        )
         
         return AgentLoopOutput(
             prompt_ids=initial_prompt_ids,
