@@ -76,9 +76,9 @@ echo "[run_sw] Using N_GPUS_PER_NODE=$N_GPUS_PER_NODE"
 
 # 训练参数（先给一个可跑的默认；可通过环境变量覆盖）
 TRAIN_BATCH_SIZE="${TRAIN_BATCH_SIZE:-4}"
-MAX_PROMPT_LEN="${MAX_PROMPT_LEN:-2000}"     # prompt 只有 question；长文在 context 字段里由 agent loop 手动切块
-MAX_RESP_LEN="${MAX_RESP_LEN:-38960}"        # 恢复较大的响应长度
-MAX_MODEL_LEN="${MAX_MODEL_LEN:-40960}"       # 恢复较大的上下文长度
+MAX_PROMPT_LEN="${MAX_PROMPT_LEN:-2500}"     # prompt 只有 question；长文在 context 字段里由 agent loop 手动切块
+MAX_RESP_LEN="${MAX_RESP_LEN:-90000}"        # 恢复较大的响应长度
+MAX_MODEL_LEN="${MAX_MODEL_LEN:-100000}"       # 恢复较大的上下文长度
 TOTAL_STEPS="${TOTAL_STEPS:-1000}"
 TOTAL_EPOCHS="${TOTAL_EPOCHS:-3}"
 GPU_MEM_UTIL="${GPU_MEM_UTIL:-0.8}"
@@ -103,8 +103,8 @@ mkdir -p "$LOG_DIR"
 
 set -x
 
-PROJECT_NAME="${PROJECT_NAME:-hotpotqa_sw}"
-EXP_NAME="${EXP_NAME:-qwen3-8b_hotpotqa_sw_grpo}"
+PROJECT_NAME="${PROJECT_NAME:-hotpotqa_100k_sw}"
+EXP_NAME="${EXP_NAME:-qwen3-8b}"
 # 根分区 / 当前已满（df 显示 100%），checkpoint 写到工程目录下很容易失败。
 # 默认把 checkpoint 放到 /var（通常更大）；如需自定义可通过环境变量覆盖 CKPT_DIR。
 CKPT_DIR="${CKPT_DIR:-/var/luzhenyan/checkpoints}"

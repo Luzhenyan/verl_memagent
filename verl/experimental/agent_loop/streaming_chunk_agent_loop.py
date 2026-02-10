@@ -1,10 +1,11 @@
 """
-Streaming-chunk agent loop (no tools): 复刻 eval 的“手动分段 + 固定 prompt + summary + final answer”流程。
+Streaming-chunk agent loop (no tools): 复刻 eval 的"手动分段 + 固定 prompt + summary + final answer"流程。
 
 特点：
 - 不调用任何工具（tool_config_path=None）
 - 外部手动分段：从样本的 `context`（或 extra_info.context）按 chunk_size 切块
-- 固定模板：TEMPLATE_FIRST / TEMPLATE_THINK / TEMPLATE_SUMMARIZE / TEMPLATE_FINAL
+- 固定模板：TEMPLATE_FIRST / TEMPLATE_THINK / TEMPLATE_FINAL
+- 模型自主决定何时总结：在回复中附带 <SUMMARY>...</SUMMARY> 块即触发总结更新
 - 仅基于最终答案（boxed）做 0/1 reward_score（便于 GRPO 直接用）
 """
 
@@ -37,32 +38,19 @@ TEMPLATE_FIRST = """You are presented with a problem and the first section of an
 {chunk}
 </section>
 
-IMPORTANT: Only discuss information that is directly relevant to answering the problem. Ignore unrelated content.
-Note: You will later be asked to provide a final answer, so extract all facts that could help (names, dates, places, etc.).
-
-In addition to extraction, you MAY decide to update a running summary when it is helpful.
-Meta: chunks_since_summary={chunks_since_summary}, summary_interval_hint={summary_interval_hint}, is_last_section={is_last_section}.
-
-Heuristic: if chunks_since_summary >= summary_interval_hint, OR if you already have enough information, OR if the context is getting long, then set should_summarize=true.
-Hard rule: if is_last_section=true, you MUST set should_summarize=true and provide a non-empty summary.
-
-Return ONLY the following tagged blocks (no markdown, no extra text):
-
-<NOTES>
-Key facts from this section (names, dates, numbers, direct answers):
-</NOTES>
-<SHOULD_SUMMARIZE>
-true|false
-</SHOULD_SUMMARIZE>
+Output plain text notes.
+Optionally, if you decide to update the running summary, append exactly one block:
 <SUMMARY>
-...updated running summary (empty if SHOULD_SUMMARIZE=false)...
+...updated running summary...
 </SUMMARY>
-
-Summary rules (when should_summarize=true):
+Summary rules:
 - MUST start by restating the original problem/question.
-- MUST list ALL specific facts found (names, dates, numbers, connections).
+- extract ONLY information that is directly relevant to answering the problem.
 - If facts answer the question, state: "Answer: [the answer]" or "Partial: [what's found]".
-- MUST NOT be empty.
+
+Meta: chunks_since_summary={chunks_since_summary}, summary_interval_hint={summary_interval_hint}, is_last_section={is_last_section}.
+Heuristic: consider adding <SUMMARY> if chunks_since_summary >= summary_interval_hint, or context is getting long, or you already have enough.
+Hard rule: if is_last_section=true, you MUST include a non-empty <SUMMARY> block.
 
 Output:
 """
@@ -73,49 +61,18 @@ TEMPLATE_THINK = """Here is another section of the article. Please continue extr
 {chunk}
 </section>
 
-IMPORTANT: Only discuss information that is directly relevant to answering the problem we are working on. If this section contains no relevant information, simply state that and move on. Do NOT summarize unrelated content.
-
-You MAY decide to update a running summary when it is helpful.
-Meta: chunks_since_summary={chunks_since_summary}, summary_interval_hint={summary_interval_hint}, is_last_section={is_last_section}.
-
-Heuristic: if chunks_since_summary >= summary_interval_hint, OR if you already have enough information, OR if the context is getting long, then set should_summarize=true.
-Hard rule: if is_last_section=true, you MUST set should_summarize=true and provide a non-empty summary.
-
-Return ONLY the following tagged blocks (no markdown, no extra text):
-
-<NOTES>
-Key facts from this section (names, dates, numbers, direct answers):
-</NOTES>
-<SHOULD_SUMMARIZE>
-true|false
-</SHOULD_SUMMARIZE>
-<SUMMARY>
-...updated running summary (empty if SHOULD_SUMMARIZE=false)...
-</SUMMARY>
-
-Summary rules (when should_summarize=true):
+Output plain text notes. If no relevant info, say so briefly.
+Optionally append exactly one <SUMMARY>...</SUMMARY> block if you choose to update the running summary.
+Summary rules:
 - MUST start by restating the original problem/question.
-- MUST list ALL specific facts found (names, dates, numbers, connections).
+- extract ONLY information that is directly relevant to answering the problem.
 - If facts answer the question, state: "Answer: [the answer]" or "Partial: [what's found]".
-- MUST NOT be empty.
+
+Meta: chunks_since_summary={chunks_since_summary}, summary_interval_hint={summary_interval_hint}, is_last_section={is_last_section}.
+Heuristic: consider adding <SUMMARY> if chunks_since_summary >= summary_interval_hint, or context is getting long, or you already have enough.
+Hard rule: if is_last_section=true, you MUST include a non-empty <SUMMARY> block.
 
 Output:
-"""
-
-TEMPLATE_SUMMARIZE = """Based on our discussion, provide a concise summary:
-
-REQUIRED FORMAT:
-Question: [restate the original problem]
-Findings: [list ALL specific facts found: names, dates, numbers, document references]
-Answer Status: [Complete/Partial/Not Found]
-
-RULES:
-- MUST start with "Question:" to restate the problem
-- MUST list all relevant facts found (even from earlier sections)
-- If you have enough to answer, state "Answer Status: Complete - [answer]"
-- Never output empty summary - always include the question and findings
-
-Summary:
 """
 
 TEMPLATE_FINAL = """Based on the following summary, provide the final answer in \\boxed{{}}.
@@ -167,6 +124,20 @@ def _extract_boxed(text: str) -> str:
     if right is None:
         return text[idx:].strip()
     return text[idx + 7 : right].strip()
+
+
+_SUMMARY_RE = re.compile(r"<SUMMARY>\s*(.*?)\s*</SUMMARY>", re.S | re.I)
+
+
+def _parse_summary(text: str) -> Optional[str]:
+    """从模型输出中提取 <SUMMARY>...</SUMMARY> 块，如果有则返回内容，否则返回 None。"""
+    if not text:
+        return None
+    m = _SUMMARY_RE.search(text)
+    if m:
+        summary = m.group(1).strip()
+        return summary if summary else None
+    return None
 
 
 def _normalize(s: str) -> str:
@@ -320,8 +291,10 @@ class StreamingChunkAgentLoop(AgentLoopBase):
         # --- 运行流程 ---
         # 1. 初始思考
         chunks_since_summary = 0
+        current_summary: Optional[str] = None
+
         is_last_section = (total_chunks == 1)
-        await _do_turn(
+        gen_text = await _do_turn(
             TEMPLATE_FIRST.format(
                 prompt=question,
                 chunk=chunks[0],
@@ -331,13 +304,18 @@ class StreamingChunkAgentLoop(AgentLoopBase):
             ),
             label=f"chunk 1/{total_chunks}",
         )
-        current_summary = ""
+        # 解析模型输出中的 <SUMMARY> 块
+        parsed_summary = _parse_summary(gen_text)
+        if parsed_summary:
+            current_summary = parsed_summary
+            chunks_since_summary = 0
+            _dbg(f"模型在 chunk 1 触发了总结更新")
 
         # 2. 循环分块
         for i, chunk in enumerate(chunks[1:], start=2):
             chunks_since_summary += 1
             is_last_section = (i == total_chunks)
-            await _do_turn(
+            gen_text = await _do_turn(
                 TEMPLATE_THINK.format(
                     chunk=chunk,
                     chunks_since_summary=chunks_since_summary,
@@ -346,16 +324,18 @@ class StreamingChunkAgentLoop(AgentLoopBase):
                 ),
                 label=f"chunk {i}/{total_chunks}",
             )
-            
-            if summary_interval > 0 and i % summary_interval == 0 and i != total_chunks:
-                current_summary = await _do_turn(TEMPLATE_SUMMARIZE, label=f"inter-summary at {i}")
+            # 解析模型输出中的 <SUMMARY> 块
+            parsed_summary = _parse_summary(gen_text)
+            if parsed_summary:
+                current_summary = parsed_summary
                 chunks_since_summary = 0
+                _dbg(f"模型在 chunk {i} 触发了总结更新")
 
-        # 3. 最终总结
-        current_summary = await _do_turn(TEMPLATE_SUMMARIZE, label="final-summary")
-
-        # 4. 最终回答
-        final_answer = await _do_turn(TEMPLATE_FINAL.format(summary=current_summary), label="final-answer")
+        # 3. 最终回答（直接使用模型自行产生的 summary）
+        final_answer = await _do_turn(
+            TEMPLATE_FINAL.format(summary=current_summary or "No information gathered"),
+            label="final-answer",
+        )
 
         reward_score = 1.0 if _is_correct(final_answer, gt_list) else 0.0
         _dbg(f"EXIT run() reward={reward_score} total_tokens={len(total_response_ids)}")
