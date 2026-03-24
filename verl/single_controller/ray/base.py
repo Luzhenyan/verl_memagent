@@ -13,6 +13,7 @@
 # limitations under the License.
 import inspect
 import logging
+import os
 import socket
 from copy import deepcopy
 from typing import Any, Optional
@@ -349,8 +350,11 @@ class RayWorkerGroup(WorkerGroup):
         self._workers = workers
         self._world_size = len(worker_names)
 
-    def _get_master_addr_port(self, pg):
-        """Get master addr and port for this worker group"""
+    def _get_master_addr_port(self, pg, pgs_sorted, is_single_node):
+        """Get master addr and port for this worker group.
+        When is_single_node (all workers on one machine), use 127.0.0.1 to avoid
+        TCPStore timeout connecting to node IP (e.g. 172.16.x.x).
+        """
         self._master_addr, self._master_port = ray.get(
             get_master_addr_port.options(
                 scheduling_strategy=PlacementGroupSchedulingStrategy(
@@ -358,6 +362,8 @@ class RayWorkerGroup(WorkerGroup):
                 ),
             ).remote()
         )
+        if is_single_node or os.environ.get("VERL_USE_LOCALHOST_MASTER", "").lower() in ("1", "true"):
+            self._master_addr = "127.0.0.1"
 
     def _init_with_resource_pool(self, resource_pool, ray_cls_with_init, bin_pack, detached, worker_env=None):
         """Initialize the worker group by creating new workers from a resource pool.
@@ -381,10 +387,12 @@ class RayWorkerGroup(WorkerGroup):
 
         rank = -1
         local_world_size = resource_pool.store[0]
-        for pg_idx, pg in enumerate(sort_placement_group_by_node_ip(pgs)):
+        pgs_sorted = sort_placement_group_by_node_ip(pgs)
+        is_single_node = len(pgs_sorted) == 1
+        for pg_idx, pg in enumerate(pgs_sorted):
             assert local_world_size <= pg.bundle_count, f"when generating for {self.name_prefix}, for the "
             if pg_idx == 0:
-                self._get_master_addr_port(pg)
+                self._get_master_addr_port(pg, pgs_sorted, is_single_node)
 
             for local_rank in range(local_world_size):
                 rank += 1

@@ -91,10 +91,20 @@ Your answer:
 """
 
 
-def _chunk_context(context: str, chunk_size: int) -> List[str]:
-    if chunk_size <= 0:
+def _chunk_context_by_tokens(context: str, chunk_tokens: int, tokenizer) -> List[str]:
+    """按 token 数分块，与 eval query_runner_sw.py 保持一致。
+
+    先将整段 context encode 成 token ids，按 chunk_tokens 切分，再 decode 回文本。
+    这样能保证训练和 eval 的分块粒度完全相同（默认 1600 tokens/块）。
+    """
+    if chunk_tokens <= 0:
         return [context]
-    return [context[i : i + chunk_size] for i in range(0, len(context), chunk_size)]
+    ids = tokenizer.encode(context)
+    chunks = []
+    for i in range(0, len(ids), chunk_tokens):
+        chunk_text = tokenizer.decode(ids[i : i + chunk_tokens])
+        chunks.append(chunk_text)
+    return chunks if chunks else [context]
 
 
 def _strip_think_blocks(text: str) -> str:
@@ -160,6 +170,137 @@ def _is_correct(pred_text: str, ground_truths: List[str]) -> bool:
     return False
 
 
+# ---------------------------------------------------------------------------
+# DocQA ability 专属评分函数
+# ---------------------------------------------------------------------------
+
+import string as _string
+from collections import Counter as _Counter
+
+
+def _normalize_qa_answer(text: Optional[str]) -> str:
+    """对英文 QA 答案做规范化（去标点、冠词、多余空格）。"""
+    if not text:
+        return ""
+    text = text.lower()
+    text = text.translate(str.maketrans("", "", _string.punctuation))
+    text = re.sub(r"\b(a|an|the)\b", " ", text)
+    text = " ".join(text.split())
+    return text.strip()
+
+
+def _qa_f1(prediction: str, ground_truth: str) -> float:
+    pred_tokens = _normalize_qa_answer(prediction).split()
+    gt_tokens = _normalize_qa_answer(ground_truth).split()
+    if not pred_tokens or not gt_tokens:
+        return 0.0
+    common = _Counter(pred_tokens) & _Counter(gt_tokens)
+    num_same = sum(common.values())
+    if num_same == 0:
+        return 0.0
+    precision = num_same / len(pred_tokens)
+    recall = num_same / len(gt_tokens)
+    return (2 * precision * recall) / (precision + recall)
+
+
+def _extract_choice_label(text: Optional[str]) -> Optional[str]:
+    """从 doc-mc 模型输出中提取 A/B/C/D 标签。"""
+    if not text:
+        return None
+    text = str(text).strip()
+    for pattern in (
+        r"^\(?([A-D])\)?\.?$",
+        r"^The correct answer is\s*\(?([A-D])\)?\.?$",
+        r"^Answer\s*[:：]?\s*\(?([A-D])\)?\.?$",
+    ):
+        m = re.fullmatch(pattern, text, flags=re.I)
+        if m:
+            return m.group(1).upper()
+    m = re.search(r"\(([A-D])\)", text, flags=re.I)
+    if m:
+        return m.group(1).upper()
+    m = re.search(r"\b([A-D])\b", text, flags=re.I)
+    if m:
+        return m.group(1).upper()
+    return None
+
+
+def _extract_number(text: Optional[str]) -> Optional[float]:
+    """从字符串中提取数值。"""
+    if not text:
+        return None
+    text = str(text).strip().replace(",", "").replace("$", "").replace("%", "")
+    try:
+        return float(text)
+    except ValueError:
+        pass
+    m = re.search(r"-?\d+\.?\d*", text)
+    if m:
+        try:
+            return float(m.group())
+        except ValueError:
+            return None
+    return None
+
+
+def _compute_reward(ability: str, pred_text: str, ground_truths: List[str]) -> float:
+    """
+    根据 ability 计算 0/1 奖励分数。
+
+    - doc-qa:   EM（精确匹配）或 F1 ≥ 0.5 均视为正确（宽松版，鼓励学习）
+    - doc-mc:   字母标签精确匹配
+    - doc-math: 数值相等（允许 1% 相对误差）
+    - 其他/空:   回退到通用 _is_correct
+    """
+    if not ground_truths:
+        return 0.0
+
+    raw_pred = _extract_boxed(_strip_think_blocks(pred_text))
+    if not raw_pred:
+        return 0.0
+
+    if ability == "doc-mc":
+        pred_label = _extract_choice_label(raw_pred)
+        if pred_label is None:
+            return 0.0
+        for gt in ground_truths:
+            gt_label = _extract_choice_label(str(gt))
+            if gt_label and pred_label == gt_label:
+                return 1.0
+        return 0.0
+
+    if ability == "doc-math":
+        pred_num = _extract_number(raw_pred)
+        if pred_num is None:
+            return 0.0
+        for gt in ground_truths:
+            gt_num = _extract_number(str(gt))
+            if gt_num is None:
+                continue
+            if pred_num == gt_num:
+                return 1.0
+            if gt_num != 0 and abs(pred_num - gt_num) / abs(gt_num) < 0.01:
+                return 1.0
+            if abs(pred_num - gt_num) < 1e-6:
+                return 1.0
+        return 0.0
+
+    if ability == "doc-qa":
+        pred_norm = _normalize_qa_answer(raw_pred)
+        for gt in ground_truths:
+            gt_norm = _normalize_qa_answer(str(gt))
+            if not gt_norm:
+                continue
+            if pred_norm == gt_norm:
+                return 1.0
+            if _qa_f1(raw_pred, str(gt)) >= 0.5:
+                return 1.0
+        return 0.0
+
+    # 通用回退：复用原始 _is_correct
+    return 1.0 if _is_correct(pred_text, ground_truths) else 0.0
+
+
 @register("streaming_chunk_agent")
 class StreamingChunkAgentLoop(AgentLoopBase):
     """固定流程分段阅读 agent loop（无工具）"""
@@ -182,17 +323,24 @@ class StreamingChunkAgentLoop(AgentLoopBase):
         )
         context = kwargs.get("context") or extra_info.get("context") or ""
 
+        # ability 字段：支持 hotpotqa（空）、doc-qa/doc-mc/doc-math
+        ability = str(kwargs.get("ability") or extra_info.get("ability") or "").strip()
+
         reward_model = kwargs.get("reward_model") or {}
         gt = reward_model.get("ground_truth", []) or extra_info.get("all_answers", []) or []
         gt_list = [str(x) for x in (gt if isinstance(gt, list) else [gt])]
 
-        chunk_size = int(extra_info.get("chunk_size", 6400))
         summary_interval = int(extra_info.get("summary_interval", 4))
+        # 统一按 token 数分块，与 eval query_runner_sw.py 的 RECURRENT_CHUNK_SIZE 保持一致
+        # hotpotqa 数据无 chunk_tokens 字段，走默认值 1600；docqa 数据显式设为 1200
+        chunk_tokens = int(extra_info.get("chunk_tokens", 1600))
         max_chunks = extra_info.get("max_chunks")
         if max_chunks is not None:
             max_chunks = int(max_chunks)
 
-        chunks = _chunk_context(str(context), chunk_size) if context else [""]
+        chunks = _chunk_context_by_tokens(str(context), chunk_tokens, self.tokenizer) if context else [""]
+        _dbg(f"分块模式：token ({chunk_tokens} tokens/块)")
+
         if max_chunks is not None:
             _dbg(f"⚠️ Applying max_chunks={max_chunks} constraint (original chunks: {len(chunks)})")
             chunks = chunks[:max_chunks]
@@ -201,8 +349,8 @@ class StreamingChunkAgentLoop(AgentLoopBase):
         _dbg(
             "parsed sample: "
             f"question_len={len(question)} context_len={len(str(context))} "
-            f"gt_n={len(gt_list)} chunk_size={chunk_size} summary_interval={summary_interval} "
-            f"chunks={total_chunks}"
+            f"ability={ability!r} gt_n={len(gt_list)} "
+            f"chunk_tokens={chunk_tokens} summary_interval={summary_interval} chunks={total_chunks}"
         )
 
         messages: List[Dict[str, str]] = []
@@ -337,8 +485,8 @@ class StreamingChunkAgentLoop(AgentLoopBase):
             label="final-answer",
         )
 
-        reward_score = 1.0 if _is_correct(final_answer, gt_list) else 0.0
-        _dbg(f"EXIT run() reward={reward_score} total_tokens={len(total_response_ids)}")
+        reward_score = _compute_reward(ability, final_answer, gt_list)
+        _dbg(f"EXIT run() ability={ability!r} reward={reward_score} total_tokens={len(total_response_ids)}")
 
         initial_prompt_ids = self.tokenizer.apply_chat_template(
             [
