@@ -113,6 +113,16 @@ def _strip_think_blocks(text: str) -> str:
     return re.sub(r"<think>.*?</think>", "", text, flags=re.S).strip()
 
 
+def _extract_solution_text(text: str) -> str:
+    """去除 think 块，与 eval extract_solution_text 对齐（按最后一个 </think> 切分）。"""
+    if not text:
+        return ""
+    text = str(text).strip()
+    if "</think>" in text:
+        return text.split("</think>")[-1].strip()
+    return text
+
+
 def _extract_boxed(text: str) -> str:
     if not text:
         return ""
@@ -171,15 +181,18 @@ def _is_correct(pred_text: str, ground_truths: List[str]) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# DocQA ability 专属评分函数
+# DocQA ability 专属评分函数（与 eval/eval_sw_docqa.py 保持完全一致）
 # ---------------------------------------------------------------------------
 
+import math as _math
 import string as _string
 from collections import Counter as _Counter
 
 
-def _normalize_qa_answer(text: Optional[str]) -> str:
-    """对英文 QA 答案做规范化（去标点、冠词、多余空格）。"""
+# --- normalize_answer (doc-qa EM/F1) ---
+
+def _normalize_answer(text: Optional[str]) -> str:
+    """去标点、冠词、多余空格（与 eval normalize_answer 完全相同）。"""
     if not text:
         return ""
     text = text.lower()
@@ -189,22 +202,30 @@ def _normalize_qa_answer(text: Optional[str]) -> str:
     return text.strip()
 
 
-def _qa_f1(prediction: str, ground_truth: str) -> float:
-    pred_tokens = _normalize_qa_answer(prediction).split()
-    gt_tokens = _normalize_qa_answer(ground_truth).split()
-    if not pred_tokens or not gt_tokens:
-        return 0.0
-    common = _Counter(pred_tokens) & _Counter(gt_tokens)
-    num_same = sum(common.values())
-    if num_same == 0:
-        return 0.0
-    precision = num_same / len(pred_tokens)
-    recall = num_same / len(gt_tokens)
-    return (2 * precision * recall) / (precision + recall)
+def _exact_match_score(prediction: str, ground_truths: List[str]) -> float:
+    pred_norm = _normalize_answer(prediction)
+    for gt in ground_truths:
+        if pred_norm == _normalize_answer(str(gt)):
+            return 1.0
+    return 0.0
 
+
+def _sub_exact_match_score(prediction: str, ground_truths: List[str]) -> float:
+    """子串匹配（eval 中 doc-qa 的 primary metric）。"""
+    pred_norm = _normalize_answer(prediction)
+    if not pred_norm:
+        return 0.0
+    for gt in ground_truths:
+        gt_norm = _normalize_answer(str(gt))
+        if gt_norm and (gt_norm in pred_norm or pred_norm in gt_norm):
+            return 1.0
+    return 0.0
+
+
+# --- doc-mc ---
 
 def _extract_choice_label(text: Optional[str]) -> Optional[str]:
-    """从 doc-mc 模型输出中提取 A/B/C/D 标签。"""
+    """从模型输出中提取 A/B/C/D 标签（与 eval extract_choice_label 完全相同）。"""
     if not text:
         return None
     text = str(text).strip()
@@ -225,79 +246,286 @@ def _extract_choice_label(text: Optional[str]) -> Optional[str]:
     return None
 
 
-def _extract_number(text: Optional[str]) -> Optional[float]:
-    """从字符串中提取数值。"""
-    if not text:
-        return None
-    text = str(text).strip().replace(",", "").replace("$", "").replace("%", "")
+def _score_docmc(prediction: str, ground_truths: List[str]) -> float:
+    """与 eval score_docmc 完全对齐：提取不到 label 直接返回 0.0，不回退到 EM。"""
+    if not prediction or not prediction.strip():
+        return 0.0
+    pred_label = _extract_choice_label(prediction)
+    if pred_label is None:
+        return 0.0
+    gold_labels = {
+        label for label in
+        (_extract_choice_label(str(gt)) for gt in ground_truths)
+        if label is not None
+    }
+    return 1.0 if pred_label in gold_labels else 0.0
+
+
+# --- doc-math ---
+
+def _is_number(s: str) -> bool:
+    return bool(re.match(r"^[-+]?(\d{1,3}(,\d{3})*|(\d+))(\.\d+)?$", s))
+
+
+def _round_up_to_decimal(number: float, decimals: int) -> float:
+    factor = 10 ** decimals
+    return _math.ceil(number * factor) / factor
+
+
+def _within_eps(pred: float, gt: float) -> bool:
+    eps = abs(gt) * 0.0015
+    return gt - eps <= pred <= gt + eps
+
+
+def _normalize_docmath_value(prediction: Optional[str]):
+    """与 eval normalize_docmath_value 完全相同。"""
+    if not isinstance(prediction, str):
+        prediction = str(prediction) if prediction is not None else "0"
+
+    prediction = prediction.strip().rstrip(".")
+
+    for money in ["£", "€", "¥", "million", "billion", "thousand", "US", "USD", "RMB"]:
+        prediction = prediction.replace(money, "")
+
+    if "=" in prediction:
+        prediction = prediction.split("=")[-1].strip()
+    if "≈" in prediction:
+        prediction = prediction.split("≈")[-1].strip()
+    if "`" in prediction:
+        prediction = prediction.replace("`", "")
+    if "%" in prediction:
+        prediction = prediction.replace("%", "")
+    if "$" in prediction:
+        prediction = prediction.replace("$", "")
+    if "°" in prediction:
+        prediction = prediction.replace("°", "")
+
+    if prediction in ["true", "yes", "false", "no"]:
+        prediction = "True" if prediction in ["true", "yes"] else "False"
+    if "True" in prediction or "False" in prediction:
+        prediction = "True" if "True" in prediction else "False"
+
+    if "approximately" in prediction:
+        prediction = prediction.replace("approximately", "").strip()
+    if " or " in prediction:
+        prediction = prediction.split(" or ")[0]
+
+    if re.match(r"[-+]?(?:[\d,]*\.*\d+) [^0-9 ]+$", prediction):
+        m = re.search(r"([-+]?(?:[\d,]*\.*\d+)) [^0-9 ]+$", prediction)
+        if m:
+            prediction = m.group(1)
+    if re.match(r"[^0-9 ]+ [-+]?(?:[\d,]*\.*\d+)$", prediction):
+        m = re.search(r"[^0-9 ]+ ([-+]?(?:[\d,]*\.*\d+))$", prediction)
+        if m:
+            prediction = m.group(1)
+    if re.match(r"[-+]?(?:[\d,]*\.*\d+)[^\d]{1,2}$", prediction):
+        m = re.search(r"([-+]?(?:[\d,]*\.*\d+))[^\d]{1,2}$", prediction)
+        if m:
+            prediction = m.group(1)
+    if re.match(r"[^-+\d]{1,2}(?:[\d,]*\.*\d+)$", prediction):
+        m = re.search(r"[^-+\d]{1,2}((?:[\d,]*\.*\d+))$", prediction)
+        if m:
+            prediction = m.group(1)
+
+    if "10^" in prediction:
+        prediction = re.sub(r"10\^(-?\d+)", r"_math.pow(10, \1)", prediction)
+    if " x " in prediction:
+        prediction = prediction.replace(" x ", "*")
+    if " × " in prediction:
+        prediction = prediction.replace(" × ", "*")
+    if _is_number(prediction):
+        prediction = prediction.replace(",", "")
+
+    if "(a)" in prediction or "(b)" in prediction or "(c)" in prediction or "(d)" in prediction:
+        m = re.search(r"\([a-d]\)", prediction)
+        if m:
+            prediction = '"' + m.group(0) + '"'
+
+    if not prediction:
+        prediction = "0"
+
     try:
-        return float(text)
-    except ValueError:
+        prediction = eval(prediction)  # noqa: S307
+    except Exception:
+        prediction = 0
+
+    if isinstance(prediction, (set, tuple)):
+        prediction = list(prediction)
+        if prediction:
+            if isinstance(prediction[0], complex):
+                prediction = [v.real for v in prediction]
+    elif isinstance(prediction, list):
         pass
-    m = re.search(r"-?\d+\.?\d*", text)
+    else:
+        if isinstance(prediction, complex):
+            prediction = prediction.real
+
+    return prediction
+
+
+def _compare_two_numbers(prediction, ground_truth) -> bool:
+    """与 eval compare_two_numbers 完全相同。"""
+    if not isinstance(prediction, (int, float)):
+        return False
+    try:
+        v1 = max(abs(ground_truth), abs(prediction))
+        v2 = min(abs(ground_truth), abs(prediction))
+        if (v1 != 0 and v2 != 0) and int(_math.log10(v1) - _math.log10(v2)) == (_math.log10(v1) - _math.log10(v2)):
+            return True
+        if v2 <= v1 / 50 and _within_eps(pred=v2 * 100, gt=v1):
+            return True
+        if v2 <= v1 / 500 and _within_eps(pred=v2 * 1000, gt=v1):
+            return True
+        if v2 <= v1 / 50000 and _within_eps(pred=v2 * 100000, gt=v1):
+            return True
+        if _round_up_to_decimal(v1, 3) == _round_up_to_decimal(v2, 3):
+            return True
+        return _within_eps(pred=prediction, gt=ground_truth)
+    except (OverflowError, ValueError):
+        return False
+
+
+def _score_docmath(prediction: str, ground_truth: str) -> float:
+    """与 eval score_docmath_qwen 完全相同。"""
+    if not prediction:
+        return 0.0
+    pred_value = _normalize_docmath_value(prediction)
+    gt_value = _normalize_docmath_value(ground_truth)
+    answer_type = type(gt_value).__name__
+    if answer_type == "bool":
+        return 1.0 if pred_value == gt_value else 0.0
+    if answer_type in ["int", "float", "float64"]:
+        return 1.0 if _compare_two_numbers(pred_value, gt_value) else 0.0
+    return 0.0
+
+
+# --- 统一入口 ---
+
+def _parse_docqa_answer(response: Optional[str]) -> Optional[str]:
+    """与 eval parse_docqa_answer 完全对齐：先找 \\boxed{}，再找 'the answer is' 后缀。"""
+    text = _extract_solution_text(response or "").replace("*", "")
+    m = re.search(r"\\boxed\{([^}]+)\}", text)
     if m:
-        try:
-            return float(m.group())
-        except ValueError:
-            return None
-    return None
+        val = m.group(1).strip()
+        if val:
+            return val
+    lowered = text.lower()
+    marker = "the answer is"
+    if marker not in lowered:
+        return None
+    idx = lowered.rfind(marker)
+    answer = text[idx + len(marker):].strip()
+    answer = answer.replace("<｜Assistant｜>", "").replace("<｜end▁of▁sentence｜>", "")
+    return answer.strip().strip(".").strip() or None
+
+
+def _parse_docmc_answer(response: Optional[str]) -> Optional[str]:
+    """与 eval parse_docmc_answer 完全对齐：boxed→label，再找 'The correct answer is'，再全文 label。"""
+    text = _extract_solution_text(response or "").replace("*", "")
+    m = re.search(r"\\boxed\{([^}]+)\}", text)
+    if m:
+        val = m.group(1).strip()
+        label = _extract_choice_label(val)
+        if label:
+            return label
+    m = re.search(r"The correct answer is \(([A-D])\)", text)
+    if m:
+        return m.group(1)
+    m = re.search(r"The correct answer is ([A-D])", text)
+    if m:
+        return m.group(1)
+    return _extract_choice_label(text)
+
+
+def _parse_docmath_answer(response: Optional[str]) -> Optional[str]:
+    """与 eval parse_docmath_answer 完全对齐：boxed 内容清洗前缀符号，再找 'the answer is <number>'。"""
+    text = _extract_solution_text(response or "").replace("*", "")
+    m = re.search(r"\\boxed\{([^}]+)\}", text)
+    if m:
+        val = m.group(1).strip().replace(",", "")
+        val = re.sub(r"^[=≈`%\$°£€¥]+", "", val).rstrip(".")
+        if val:
+            return val
+    m = re.search(
+        r"the answer is ([=≈`%\$°£€¥]?-?[0-9\.,]+)",
+        text,
+        re.IGNORECASE,
+    )
+    if not m:
+        return None
+    return m.group(1).replace(",", "").rstrip(".")
+
+
+_DOCQA_GOLD_PATTERNS = (
+    re.compile(r"^Therefore, the answer is (?P<answer>.*)\.$"),
+    re.compile(r"^The correct answer is (?P<answer>.*)\.$"),
+)
+
+
+def _parse_gold_answer(raw: str) -> str:
+    """从 reward_model ground_truth 原始字符串中提取答案跨度。
+
+    与 eval parse_docqa_gold 完全对齐：
+      "Therefore, the answer is 670."  → "670"
+      "The correct answer is (B)."     → "(B)"
+      其他（已是裸答案）               → 原样返回
+    """
+    raw = (raw or "").strip()
+    for pattern in _DOCQA_GOLD_PATTERNS:
+        m = pattern.fullmatch(raw)
+        if m:
+            return m.group("answer").strip()
+    return raw
+
+
+def _build_answer_aliases(ability: str, answer: str) -> List[str]:
+    """为 ground truth 构建别名列表，与 eval build_answer_aliases 对齐。
+
+    doc-mc 扩充 label / (label) / "The correct answer is (label)." 三种形式；
+    其他 ability 直接返回单元素列表。
+    """
+    aliases: List[str] = [answer]
+    if ability == "doc-mc":
+        label = _extract_choice_label(answer)
+        if label:
+            for extra in [label, f"({label})", f"The correct answer is ({label})."]:
+                if extra not in aliases:
+                    aliases.append(extra)
+    return aliases
 
 
 def _compute_reward(ability: str, pred_text: str, ground_truths: List[str]) -> float:
-    """
-    根据 ability 计算 0/1 奖励分数。
+    """与 eval compute_sample_metrics 完全对齐。
 
-    - doc-qa:   EM（精确匹配）或 F1 ≥ 0.5 均视为正确（宽松版，鼓励学习）
-    - doc-mc:   字母标签精确匹配
-    - doc-math: 数值相等（允许 1% 相对误差）
-    - 其他/空:   回退到通用 _is_correct
+    流程：
+    1. 用 _parse_gold_answer 将原始 ground_truth（如 "Therefore, the answer is 670."）
+       解析为纯答案字符串（"670"），与 eval parse_docqa_gold 保持一致。
+    2. 用 _build_answer_aliases 为 doc-mc 扩充别名列表。
+    3. 按 ability 调用专属提取函数 + 专属评分函数：
+       - doc-qa:   parse_docqa_answer → sub_exact_match_score
+       - doc-mc:   parse_docmc_answer → score_docmc（无 label 直接 0.0）
+       - doc-math: parse_docmath_answer → normalize_docmath_value + compare_two_numbers
+       - 其他/空:   回退到通用 _is_correct（hotpotqa 等）
     """
     if not ground_truths:
         return 0.0
 
-    raw_pred = _extract_boxed(_strip_think_blocks(pred_text))
-    if not raw_pred:
-        return 0.0
-
-    if ability == "doc-mc":
-        pred_label = _extract_choice_label(raw_pred)
-        if pred_label is None:
-            return 0.0
-        for gt in ground_truths:
-            gt_label = _extract_choice_label(str(gt))
-            if gt_label and pred_label == gt_label:
-                return 1.0
-        return 0.0
-
-    if ability == "doc-math":
-        pred_num = _extract_number(raw_pred)
-        if pred_num is None:
-            return 0.0
-        for gt in ground_truths:
-            gt_num = _extract_number(str(gt))
-            if gt_num is None:
-                continue
-            if pred_num == gt_num:
-                return 1.0
-            if gt_num != 0 and abs(pred_num - gt_num) / abs(gt_num) < 0.01:
-                return 1.0
-            if abs(pred_num - gt_num) < 1e-6:
-                return 1.0
-        return 0.0
+    gold_answer = _parse_gold_answer(ground_truths[0])
+    parsed_gts = _build_answer_aliases(ability, gold_answer)
 
     if ability == "doc-qa":
-        pred_norm = _normalize_qa_answer(raw_pred)
-        for gt in ground_truths:
-            gt_norm = _normalize_qa_answer(str(gt))
-            if not gt_norm:
-                continue
-            if pred_norm == gt_norm:
-                return 1.0
-            if _qa_f1(raw_pred, str(gt)) >= 0.5:
-                return 1.0
-        return 0.0
+        prediction = _parse_docqa_answer(pred_text) or ""
+        return _sub_exact_match_score(prediction, parsed_gts)
 
-    # 通用回退：复用原始 _is_correct
+    if ability == "doc-mc":
+        prediction = _parse_docmc_answer(pred_text) or ""
+        return _score_docmc(prediction, parsed_gts)
+
+    if ability == "doc-math":
+        prediction = _parse_docmath_answer(pred_text) or ""
+        return _score_docmath(prediction, gold_answer)
+
+    # 通用回退（hotpotqa 等）
     return 1.0 if _is_correct(pred_text, ground_truths) else 0.0
 
 
