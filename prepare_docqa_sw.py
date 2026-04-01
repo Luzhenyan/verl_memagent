@@ -18,9 +18,9 @@ prepare_docqa_sw.py - 将 DocQA RL parquet 转换为 SW 训练格式
     # 同时处理 train + test：
     python prepare_docqa_sw.py \
         --input /var/luzhenyan/data/DocQA_RL_1.6K_train.parquet \
-        --output /var/luzhenyan/data/docqa_train_sw.parquet \
+        --output /var/luzhenyan/data/docqa_train_sw_1600.parquet \
         --val_input /var/luzhenyan/data/DocQA_RL_1.6K_test.parquet \
-        --val_output /var/luzhenyan/data/docqa_val_sw.parquet
+        --val_output /var/luzhenyan/data/docqa_val_sw_1600.parquet
 """
 
 import argparse
@@ -168,8 +168,8 @@ def build_answer_aliases(ability: str, answer: str) -> List[str]:
 # ---------------------------------------------------------------------------
 
 # 与 eval/memagent_eval/config.py 中的 RECURRENT_CHUNK_SIZE 保持一致
-DEFAULT_CHUNK_TOKENS = 1200
-DEFAULT_SUMMARY_INTERVAL = 3
+DEFAULT_CHUNK_TOKENS = 1600
+DEFAULT_SUMMARY_INTERVAL = 4
 
 
 def convert_docqa_to_sw(

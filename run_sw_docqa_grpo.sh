@@ -57,9 +57,9 @@ export VERL_SW_MAX_NEW_PER_CALL="${VERL_SW_MAX_NEW_PER_CALL:-2048}"
 # 若 docqa_train_sw.parquet 不存在，自动运行预处理脚本
 # -------------------------------------------------------
 DOCQA_TRAIN_RAW="${DOCQA_TRAIN_RAW:-/var/luzhenyan/data/DocQA_RL_1.6K_train.parquet}"
-DOCQA_TRAIN_SW="${DOCQA_TRAIN_SW:-/var/luzhenyan/data/docqa_train_sw.parquet}"
+DOCQA_TRAIN_SW="${DOCQA_TRAIN_SW:-/var/luzhenyan/data/docqa_train_sw_1600.parquet}"
 DOCQA_VAL_RAW="${DOCQA_VAL_RAW:-/var/luzhenyan/data/DocQA_RL_1.6K_test.parquet}"
-DOCQA_VAL_SW="${DOCQA_VAL_SW:-/var/luzhenyan/data/docqa_val_sw.parquet}"
+DOCQA_VAL_SW="${DOCQA_VAL_SW:-/var/luzhenyan/data/docqa_val_sw_1600.parquet}"
 
 if [[ ! -f "$DOCQA_TRAIN_SW" ]]; then
   echo "[run_sw_docqa] 训练集 SW 格式不存在，开始预处理..."
