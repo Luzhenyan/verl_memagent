@@ -121,17 +121,8 @@ class RayDAPOTrainer(RayPPOTrainer):
 
                 new_batch: DataProto = DataProto.from_single_dict(batch_dict)
                 num_gen_batches += 1
-                # pop those keys for generation
-                if "multi_modal_data" in new_batch.non_tensor_batch.keys():
-                    gen_batch = new_batch.pop(
-                        batch_keys=["input_ids", "attention_mask", "position_ids"],
-                        non_tensor_batch_keys=["raw_prompt_ids", "multi_modal_data"],
-                    )
-                else:
-                    gen_batch = new_batch.pop(
-                        batch_keys=["input_ids", "attention_mask", "position_ids"],
-                        non_tensor_batch_keys=["raw_prompt_ids"],
-                    )
+                gen_batch = self._get_gen_batch(new_batch)
+                gen_batch.meta_info["global_steps"] = self.global_steps
                 gen_batch = gen_batch.repeat(repeat_times=self.config.actor_rollout_ref.rollout.n, interleave=True)
 
                 is_last_step = self.gen_steps >= self.total_training_steps
@@ -139,7 +130,10 @@ class RayDAPOTrainer(RayPPOTrainer):
                 with marked_timer("step", timing_raw):
                     # generate a batch
                     with marked_timer("gen", timing_raw, "red"):
-                        gen_batch_output = self.actor_rollout_wg.generate_sequences(gen_batch)
+                        if self.async_rollout_mode:
+                            gen_batch_output = self.async_rollout_manager.generate_sequences(gen_batch)
+                        else:
+                            gen_batch_output = self.actor_rollout_wg.generate_sequences(gen_batch)
                         timing_raw.update(gen_batch_output.meta_info["timing"])
                         gen_batch_output.meta_info.pop("timing", None)
 
@@ -147,7 +141,10 @@ class RayDAPOTrainer(RayPPOTrainer):
                         with marked_timer("gen_max", timing_raw, "red"):
                             gen_baseline_batch = deepcopy(gen_batch)
                             gen_baseline_batch.meta_info["do_sample"] = False
-                            gen_baseline_output = self.actor_rollout_wg.generate_sequences(gen_baseline_batch)
+                            if self.async_rollout_mode:
+                                gen_baseline_output = self.async_rollout_manager.generate_sequences(gen_baseline_batch)
+                            else:
+                                gen_baseline_output = self.actor_rollout_wg.generate_sequences(gen_baseline_batch)
 
                             new_batch = new_batch.union(gen_baseline_output)
                             reward_baseline_tensor = self.reward_fn(new_batch)
@@ -209,6 +206,8 @@ class RayDAPOTrainer(RayPPOTrainer):
                     else:  # NOTE: When prompts after filtering is less than train batch size,
                         # we skip to the next generation batch
                         metric_name = self.config.algorithm.filter_groups.metric
+                        if not metric_name:
+                            metric_name = "seq_final_reward"
                         if metric_name == "seq_final_reward":
                             # Turn to numpy for easier filtering
                             new_batch.non_tensor_batch["seq_final_reward"] = (
@@ -218,6 +217,28 @@ class RayDAPOTrainer(RayPPOTrainer):
                             new_batch.non_tensor_batch["seq_reward"] = (
                                 new_batch.batch["token_level_scores"].sum(dim=-1).numpy()
                             )
+
+                        if metric_name not in new_batch.non_tensor_batch:
+                            # Backward/compat: some pipelines (e.g., RM-based) won't populate `acc`.
+                            if metric_name == "acc":
+                                new_batch.non_tensor_batch["seq_final_reward"] = (
+                                    new_batch.batch["token_level_rewards"].sum(dim=-1).numpy()
+                                )
+                                print(
+                                    "[DAPO][filter_groups] metric 'acc' not found in batch; "
+                                    "falling back to 'seq_final_reward' (RM-based reward path)."
+                                )
+                                metric_name = "seq_final_reward"
+                            elif metric_name == "score" and "acc" in new_batch.non_tensor_batch:
+                                # Some reward fns only report `acc` as the scalar score.
+                                metric_name = "acc"
+                            else:
+                                available = sorted(list(new_batch.non_tensor_batch.keys()))
+                                raise KeyError(
+                                    f"filter_groups.metric='{metric_name}' not found in batch non_tensor fields. "
+                                    f"Available keys: {available}. "
+                                    "Try metric='seq_final_reward' or 'seq_reward'."
+                                )
 
                         # Collect the sequence reward for each trajectory
                         prompt_uid2metric_vals = defaultdict(list)

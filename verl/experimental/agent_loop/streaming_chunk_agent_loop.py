@@ -528,6 +528,70 @@ def _compute_reward(ability: str, pred_text: str, ground_truths: List[str]) -> f
     # 通用回退（hotpotqa 等）
     return 1.0 if _is_correct(pred_text, ground_truths) else 0.0
 
+def _apply_overlong_reward(
+    reward: float,
+    *,
+    response_length: int,
+    max_resp_len: int,
+    overlong_buffer_cfg: Any,
+) -> tuple[float, float]:
+    """按 DAPORewardManager 同款公式叠加 overlong reward shaping。"""
+    if overlong_buffer_cfg is None or not getattr(overlong_buffer_cfg, "enable", False):
+        return reward, 0.0
+
+    overlong_buffer_len = int(getattr(overlong_buffer_cfg, "len", 0) or 0)
+    overlong_penalty_factor = float(getattr(overlong_buffer_cfg, "penalty_factor", 0.0) or 0.0)
+    if overlong_buffer_len <= 0 or overlong_penalty_factor <= 0 or max_resp_len <= 0:
+        return reward, 0.0
+
+    if max_resp_len < overlong_buffer_len:
+        _dbg(
+            "overlong_buffer.len is larger than max_resp_len; "
+            f"clamping len from {overlong_buffer_len} to {max_resp_len}"
+        )
+        overlong_buffer_len = max_resp_len
+
+    expected_len = max_resp_len - overlong_buffer_len
+    exceed_len = response_length - expected_len
+    overlong_reward = min(-exceed_len / overlong_buffer_len * overlong_penalty_factor, 0.0)
+    return reward + overlong_reward, overlong_reward
+
+
+def _apply_avg_turn_length_penalty(
+    reward: float,
+    *,
+    total_gen_tokens: int,
+    num_turns: int,
+    penalty_start: int,
+    penalty_max: int,
+    penalty_factor: float,
+) -> tuple[float, float, float]:
+    """按平均单轮生成长度叠加 reward shaping。
+
+    当 avg_turn_tokens > penalty_start 时开始线性惩罚；
+    当 avg_turn_tokens >= penalty_max 时达到最大惩罚 penalty_factor。
+    """
+    if num_turns <= 0:
+        return reward, 0.0, 0.0
+
+    avg_turn_tokens = total_gen_tokens / num_turns
+    if penalty_factor <= 0 or penalty_start <= 0:
+        return reward, 0.0, avg_turn_tokens
+
+    if penalty_max <= penalty_start:
+        penalty_max = penalty_start
+
+    if avg_turn_tokens <= penalty_start:
+        return reward, 0.0, avg_turn_tokens
+
+    if penalty_max == penalty_start:
+        avg_turn_penalty = -penalty_factor
+    else:
+        penalty_ratio = min((avg_turn_tokens - penalty_start) / (penalty_max - penalty_start), 1.0)
+        avg_turn_penalty = -penalty_ratio * penalty_factor
+
+    return reward + avg_turn_penalty, avg_turn_penalty, avg_turn_tokens
+
 
 @register("streaming_chunk_agent")
 class StreamingChunkAgentLoop(AgentLoopBase):
@@ -539,6 +603,13 @@ class StreamingChunkAgentLoop(AgentLoopBase):
         rollout_cfg = self.config.actor_rollout_ref.rollout
         max_model_len = int(rollout_cfg.max_model_len or (rollout_cfg.prompt_length + rollout_cfg.response_length))
         response_len_cap = int(rollout_cfg.response_length)
+        per_turn_response_cap = int(os.getenv("VERL_SW_MAX_NEW_PER_CALL", str(response_len_cap)) or response_len_cap)
+        if per_turn_response_cap <= 0:
+            per_turn_response_cap = response_len_cap
+        per_turn_response_cap = min(per_turn_response_cap, response_len_cap)
+        avg_turn_penalty_start = int(os.getenv("VERL_SW_AVG_TURN_PENALTY_START", "500") or 500)
+        avg_turn_penalty_max = int(os.getenv("VERL_SW_AVG_TURN_PENALTY_MAX", "1000") or 1000)
+        avg_turn_penalty_factor = float(os.getenv("VERL_SW_AVG_TURN_PENALTY_FACTOR", "1.0") or 1.0)
 
         extra_info = kwargs.get("extra_info") or {}
         raw_prompt = kwargs.get("raw_prompt") or []
@@ -578,7 +649,9 @@ class StreamingChunkAgentLoop(AgentLoopBase):
             "parsed sample: "
             f"question_len={len(question)} context_len={len(str(context))} "
             f"ability={ability!r} gt_n={len(gt_list)} "
-            f"chunk_tokens={chunk_tokens} summary_interval={summary_interval} chunks={total_chunks}"
+            f"chunk_tokens={chunk_tokens} summary_interval={summary_interval} "
+            f"chunks={total_chunks} per_turn_response_cap={per_turn_response_cap} "
+            f"avg_turn_penalty=[start={avg_turn_penalty_start}, max={avg_turn_penalty_max}, factor={avg_turn_penalty_factor}]"
         )
 
         messages: List[Dict[str, str]] = []
@@ -634,7 +707,8 @@ class StreamingChunkAgentLoop(AgentLoopBase):
             call_params = dict(sampling_params or {})
             call_params.pop("max_new_tokens", None)
             remaining_model_ctx = max_model_len - len(input_ids) - 1 if max_model_len > 0 else 8192
-            call_params["max_tokens"] = max(1, int(remaining_model_ctx))
+            turn_response_budget = max(1, min(int(remaining_model_ctx), per_turn_response_cap))
+            call_params["max_tokens"] = turn_response_budget
             
             t_req0 = time.perf_counter()
             out = await self.server_manager.generate(request_id=request_id, prompt_ids=input_ids, sampling_params=call_params)
@@ -647,7 +721,17 @@ class StreamingChunkAgentLoop(AgentLoopBase):
             # 计算当前已占用的 Response 空间
             current_res_usage = len(total_response_ids) + output_len
             
-            _dbg(f"--- [TURN {gen_idx}] Done | Output: {output_len} tokens | Cumul_Gen: {total_gen_tokens} | Res_Buffer: {current_res_usage}/{response_len_cap} ---")
+            _dbg(
+                f"--- [TURN {gen_idx}] Done | Output: {output_len} tokens "
+                f"| Turn_Cap: {turn_response_budget} "
+                f"| Cumul_Gen: {total_gen_tokens} "
+                f"| Res_Buffer: {current_res_usage}/{response_len_cap} ---"
+            )
+            if output_len >= turn_response_budget:
+                _dbg(
+                    f"⚠️ TURN {gen_idx} hit per-turn response cap "
+                    f"({turn_response_budget}); stopping this round of generation."
+                )
             if current_res_usage >= response_len_cap:
                 _dbg(f"⚠️ WARNING: Res_Buffer is approaching or exceeding response_len_cap ({response_len_cap})! Truncation will occur.")
 
@@ -713,8 +797,34 @@ class StreamingChunkAgentLoop(AgentLoopBase):
             label="final-answer",
         )
 
-        reward_score = _compute_reward(ability, final_answer, gt_list)
-        _dbg(f"EXIT run() ability={ability!r} reward={reward_score} total_tokens={len(total_response_ids)}")
+        base_reward_score = _compute_reward(ability, final_answer, gt_list)
+        response_length = min(total_gen_tokens, response_len_cap)
+        max_resp_len = int(getattr(getattr(self.config, "data", None), "max_response_length", response_len_cap))
+        overlong_buffer_cfg = getattr(getattr(self.config, "reward_model", None), "overlong_buffer", None)
+        reward_score, overlong_reward = _apply_overlong_reward(
+            base_reward_score,
+            response_length=response_length,
+            max_resp_len=max_resp_len,
+            overlong_buffer_cfg=overlong_buffer_cfg,
+        )
+        reward_score, avg_turn_penalty, avg_turn_tokens = _apply_avg_turn_length_penalty(
+            reward_score,
+            total_gen_tokens=total_gen_tokens,
+            num_turns=gen_idx,
+            penalty_start=avg_turn_penalty_start,
+            penalty_max=avg_turn_penalty_max,
+            penalty_factor=avg_turn_penalty_factor,
+        )
+        _dbg(
+            f"EXIT run() ability={ability!r} "
+            f"base_reward={base_reward_score} "
+            f"overlong_reward={overlong_reward} "
+            f"avg_turn_tokens={avg_turn_tokens:.2f} "
+            f"avg_turn_penalty={avg_turn_penalty} "
+            f"reward={reward_score} "
+            f"response_len={response_length}/{max_resp_len} "
+            f"total_gen_tokens={total_gen_tokens}"
+        )
 
         initial_prompt_ids = self.tokenizer.apply_chat_template(
             [
@@ -741,6 +851,10 @@ class StreamingChunkAgentLoop(AgentLoopBase):
             response_logprobs=response_logprobs[:response_len_cap] if response_logprobs else None,
             multi_modal_data={},
             num_turns=gen_idx,
-            metrics={},
+            metrics={
+                "avg_turn_tokens": avg_turn_tokens,
+                "avg_turn_penalty": avg_turn_penalty,
+                "overlong_reward": overlong_reward,
+            },
             reward_score=reward_score,
         )
