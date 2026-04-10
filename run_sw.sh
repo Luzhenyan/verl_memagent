@@ -63,9 +63,17 @@ export VERL_SW_LOG_EVERY="${VERL_SW_LOG_EVERY:-5}"
 export VERL_VLLM_ASYNC_DEBUG="${VERL_VLLM_ASYNC_DEBUG:-1}"
 export VERL_SW_MAX_NEW_PER_CALL="${VERL_SW_MAX_NEW_PER_CALL:-2048}"
 
+# summary_interval：覆盖数据集中的 summary_interval 字段（默认 3）
+export VERL_SW_SUMMARY_INTERVAL="${VERL_SW_SUMMARY_INTERVAL:-3}"
+
+# 长度惩罚配置（factor=0.0 即完全关闭惩罚）
+export VERL_SW_AVG_TURN_PENALTY_FACTOR="${VERL_SW_AVG_TURN_PENALTY_FACTOR:-0.0}"
+
 # 数据/模型
-TRAIN_FILE="${TRAIN_FILE:-/var/wangyicheng/data/hotpotqa_train_32k_sw.parquet}"
-VAL_FILE="${VAL_FILE:-/var/wangyicheng/data/hotpotqa_train_32k_sw.parquet}"
+# TRAIN_FILE="${TRAIN_FILE:-/var/wangyicheng/data/hotpotqa_train_32k_sw.parquet}"
+# VAL_FILE="${VAL_FILE:-/var/wangyicheng/data/hotpotqa_train_32k_sw.parquet}"
+TRAIN_FILE="${TRAIN_FILE:-/var/luzhenyan/data/hotpotqa_train_32k_sw_chunk1200.parquet}"
+VAL_FILE="${VAL_FILE:-/var/luzhenyan/data/hotpotqa_train_32k_sw_chunk1200.parquet}"
 MODEL_PATH="${MODEL_PATH:-/var/wangyicheng/models/Qwen3-8B}"
 
 # 自动检测 GPU 数量并设置 N_GPUS_PER_NODE
@@ -78,7 +86,7 @@ export N_GPUS_PER_NODE="${N_GPUS_PER_NODE:-8}"
 echo "[run_sw] Using N_GPUS_PER_NODE=$N_GPUS_PER_NODE"
 
 # 训练参数（先给一个可跑的默认；可通过环境变量覆盖）
-TRAIN_BATCH_SIZE="${TRAIN_BATCH_SIZE:-4}"
+TRAIN_BATCH_SIZE="${TRAIN_BATCH_SIZE:-2}"
 MAX_PROMPT_LEN="${MAX_PROMPT_LEN:-2500}"     # prompt 只有 question；长文在 context 字段里由 agent loop 手动切块
 MAX_RESP_LEN="${MAX_RESP_LEN:-37500}"        # 恢复较大的响应长度
 MAX_MODEL_LEN="${MAX_MODEL_LEN:-40000}"       # 恢复较大的上下文长度
@@ -106,7 +114,7 @@ mkdir -p "$LOG_DIR"
 
 set -x
 
-PROJECT_NAME="${PROJECT_NAME:-hotpotqa_notes_100k_sw_no_summary}"
+PROJECT_NAME="${PROJECT_NAME:-hotpotqa_notes_100k_sw_ws_6000_c1200}"
 EXP_NAME="${EXP_NAME:-qwen3-8b}"
 # 根分区 / 当前已满（df 显示 100%），checkpoint 写到工程目录下很容易失败。
 # 默认把 checkpoint 放到 /var（通常更大）；如需自定义可通过环境变量覆盖 CKPT_DIR。
