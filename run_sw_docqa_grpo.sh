@@ -30,6 +30,7 @@ $PYTHON_BIN -c "import ray" >/dev/null 2>&1 || {
   exit 1
 }
 
+export VERL_SW_AVG_TURN_PENALTY_FACTOR="0.0"
 export VLLM_USE_V1="${VLLM_USE_V1:-1}"
 export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0,1,2,3,4,5,6,7}"
 echo "CUDA_VISIBLE_DEVICES: $CUDA_VISIBLE_DEVICES"
@@ -57,9 +58,9 @@ export VERL_SW_MAX_NEW_PER_CALL="${VERL_SW_MAX_NEW_PER_CALL:-2048}"
 # 若 docqa_train_sw.parquet 不存在，自动运行预处理脚本
 # -------------------------------------------------------
 DOCQA_TRAIN_RAW="${DOCQA_TRAIN_RAW:-/var/luzhenyan/data/DocQA_RL_1.6K_train.parquet}"
-DOCQA_TRAIN_SW="${DOCQA_TRAIN_SW:-/var/luzhenyan/data/docqa_train_sw_1600.parquet}"
+DOCQA_TRAIN_SW="${DOCQA_TRAIN_SW:-/var/luzhenyan/data/docqa_train_sw_18k_24k.parquet}"
 DOCQA_VAL_RAW="${DOCQA_VAL_RAW:-/var/luzhenyan/data/DocQA_RL_1.6K_test.parquet}"
-DOCQA_VAL_SW="${DOCQA_VAL_SW:-/var/luzhenyan/data/docqa_val_sw_1600.parquet}"
+DOCQA_VAL_SW="${DOCQA_VAL_SW:-/var/luzhenyan/data/docqa_val_sw_18k_24k.parquet}"
 
 if [[ ! -f "$DOCQA_TRAIN_SW" ]]; then
   echo "[run_sw_docqa] 训练集 SW 格式不存在，开始预处理..."
@@ -90,9 +91,9 @@ echo "[run_sw_docqa] Using N_GPUS_PER_NODE=$N_GPUS_PER_NODE"
 
 TRAIN_BATCH_SIZE="${TRAIN_BATCH_SIZE:-2}"
 MAX_PROMPT_LEN="${MAX_PROMPT_LEN:-2500}"
-MAX_RESP_LEN="${MAX_RESP_LEN:-57500}"
-MAX_MODEL_LEN="${MAX_MODEL_LEN:-60000}"
-TOTAL_STEPS="${TOTAL_STEPS:-1000}"
+MAX_RESP_LEN="${MAX_RESP_LEN:-37500}"
+MAX_MODEL_LEN="${MAX_MODEL_LEN:-40000}"
+TOTAL_STEPS="${TOTAL_STEPS:-500}"
 TOTAL_EPOCHS="${TOTAL_EPOCHS:-3}"
 GPU_MEM_UTIL="${GPU_MEM_UTIL:-0.8}"
 ROLLOUT_N="${ROLLOUT_N:-4}"
@@ -108,7 +109,7 @@ TP="${TP:-8}"
 LOG_DIR="${LOG_DIR:-$PROJECT_DIR/logs}"
 mkdir -p "$LOG_DIR"
 
-PROJECT_NAME="${PROJECT_NAME:-docqa_sw_seq_mean}"
+PROJECT_NAME="${PROJECT_NAME:-docqa_sw_18k_24k}"
 EXP_NAME="${EXP_NAME:-qwen3-8b}"
 CKPT_DIR="${CKPT_DIR:-/var/luzhenyan/checkpoints}"
 
@@ -130,7 +131,6 @@ $PYTHON_BIN -m verl.trainer.main_ppo \
   actor_rollout_ref.model.use_remove_padding=True \
   actor_rollout_ref.actor.ppo_mini_batch_size="$PPO_MINI_BSZ" \
   actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=1 \
-  actor_rollout_ref.actor.loss_agg_mode=seq-mean-token-mean \
   actor_rollout_ref.actor.use_dynamic_bsz=True \
   actor_rollout_ref.actor.ppo_max_token_len_per_gpu=24576 \
   actor_rollout_ref.actor.ulysses_sequence_parallel_size=4 \
@@ -166,7 +166,7 @@ $PYTHON_BIN -m verl.trainer.main_ppo \
   trainer.nnodes=1 \
   trainer.device=cuda \
   trainer.val_before_train=False \
-  trainer.save_freq=50 \
+  trainer.save_freq=100 \
   trainer.test_freq=-1 \
   trainer.total_training_steps="$TOTAL_STEPS" \
   data.train_files="$TRAIN_FILE" \
